@@ -11,37 +11,12 @@ import argparse
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from pyAudioAnalysis import audioBasicIO as io
-from pyAudioAnalysis import ShortTermFeatures as sF
 import numpy as np
 import plotly.graph_objs as go
-import os
+from dash.dependencies import Input, Output
+import audio_process as ap
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
-
-def get_spectrogram(path, win, step):
-    fs, s = io.read_audio_file(path)
-    print(round(fs * win))
-    print(round(fs * step))
-    cache_name = path + "_{0:.6f}_{1:.6f}.npz".format(win, step)
-    if os.path.isfile(cache_name):
-        print("LOAD")
-        npzfile = np.load(cache_name)
-        print(npzfile.files)
-        spec_val = npzfile["arr_0"]
-        spec_time = npzfile["arr_1"]
-        spec_freq = npzfile["arr_2"]
-    else:
-        spec_val, spec_time, spec_freq = sF.spectrogram(s, fs,
-                                                        round(fs * win),
-                                                        round(fs * step),
-                                                        False, True)
-        np.savez(cache_name, spec_val, spec_time, spec_freq)
-        print("DONE")
-    #    f, f_n  = sF.feature_extraction(s, fs, win * fs / 1000.0,
-    #                                    step * fs / 1000.0, deltas=True)
-    return spec_val, np.array(spec_time), np.array(spec_freq)
 
 
 def parse_arguments():
@@ -56,7 +31,7 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
 
-    sp, sp_time, sp_freq = get_spectrogram(args.input_file, 0.005, 0.002)
+    sp, sp_time, sp_freq = ap.get_spectrogram(args.input_file, 0.005, 0.002)
     print(sp.shape)
     print(sp_time.shape)
     print(sp_freq.shape)
@@ -65,7 +40,7 @@ if __name__ == "__main__":
     print(f1, f2)
     spectral_energy_1 = sp.sum(axis=1)
     spectral_energy_2 = sp[:, f1:f2].sum(axis=1)
-    threshold = np.percentile(spectral_energy_2, 50)
+    threshold = np.percentile(spectral_energy_2, 40)
     indices = np.where(spectral_energy_2 > threshold)[0]
 
     # get the indices of the frames that satisfy the thresholding
@@ -96,13 +71,53 @@ if __name__ == "__main__":
         if s_lim[1] - s_lim[0] > min_duration:
             seg_limits_2.append(s_lim)
     print(seg_limits_2)
+    max_e = spectral_energy_1.max()
     seg_limits = seg_limits_2
+
+    shapes1, shapes2 = [], []
+    for s in seg_limits_2:
+        s1 = {
+            'type': 'rect', 'x0': s[0], 'y0': 0, 'x1': s[1], 'y1': max_e,
+            'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
+            'fillcolor': 'rgba(128, 0, 128, 0.4)'}
+        shapes1.append(s1)
+        s2 = {
+            'type': 'rect', 'x0': s[0], 'y0': 20000, 'x1': s[1], 'y1': 100000,
+            'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
+            'fillcolor': 'rgba(128, 0, 128, 0.1)'}
+        shapes2.append(s2)
 
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
+    colors = colors = {
+    'background': '#111111',
+    'text': '#7FDBFF'
+    }
+
     app.layout = html.Div(children=[
-        html.H1(children='AMVOC'),
-        html.Div(children='''Analysis of Mouse Vocal Communication'''),
+        html.H1(children='AMVOC',
+        style={
+            'textAlign': 'center',
+            'color': colors['text']
+        }),
+        html.Div(children='Analysis of Mouse Vocal Communication',
+                 style={
+                     'textAlign': 'center',
+                     'color': colors['text']
+                 }),
+
+        html.Label('Slider'),
+        dcc.Slider(
+            id="slider_thres",
+            min=0,
+            max=9,
+            marks={i: 'Label {}'.format(i) if i == 1 else str(i) for i in
+                   range(1, 6)},
+            value=5,
+        ),
+        html.Div(id='thres_text'),
+
+        html.Div([
         dcc.Graph(
             id='heatmap1',
             figure={
@@ -111,7 +126,8 @@ if __name__ == "__main__":
                                     showscale=False)],
                 'layout': go.Layout(
                      xaxis=dict(title='Time (Sec)'),
-                     yaxis=dict(title='Freq (Hz)')
+                     yaxis=dict(title='Freq (Hz)'),
+                     shapes=shapes2
                 )}),
         dcc.Graph(
             id='energy',
@@ -120,6 +136,15 @@ if __name__ == "__main__":
                          go.Scatter(x=sp_time, y=spectral_energy_2)],
                 'layout': go.Layout(
                     xaxis=dict(title='Time (Sec)'),
-                    yaxis=dict(title='Energy'))})
-    ])
+                    yaxis=dict(title='Energy'), showlegend=False,
+                    shapes=shapes1)})])
+        ])
+
+
+    @app.callback(
+        Output('thres_text', component_property='children'),
+        [Input('slider_thres', 'value')])
+    def update_thres(val):
+        return val
+
     app.run_server(debug=True)
