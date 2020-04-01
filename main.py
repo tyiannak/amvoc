@@ -17,12 +17,15 @@ from dash.dependencies import Input, Output
 import audio_process as ap
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+colors = {'background': '#111111', 'text': '#7FDBFF'}
 
+ST_WIN = 0.005  # short-term window
+ST_STEP = 0.002  # short-term step
 
 def parse_arguments():
     """Parse arguments for real time demo.
     """
-    parser = argparse.ArgumentParser(description="Filler detection demo")
+    parser = argparse.ArgumentParser(description="Amvoc")
     parser.add_argument("-i", "--input_file", required=True, nargs=None,
                         help="File")
     return parser.parse_args()
@@ -31,68 +34,28 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
 
-    sp, sp_time, sp_freq = ap.get_spectrogram(args.input_file, 0.005, 0.002)
-    print(sp.shape)
-    print(sp_time.shape)
-    print(sp_freq.shape)
+    sp, sp_time, sp_freq = ap.get_spectrogram(args.input_file, ST_WIN, ST_STEP)
     f1 = np.argmin(np.abs(sp_freq - 25000))
     f2 = np.argmin(np.abs(sp_freq - 85000))
-    print(f1, f2)
     spectral_energy_1 = sp.sum(axis=1)
     spectral_energy_2 = sp[:, f1:f2].sum(axis=1)
-    threshold = np.percentile(spectral_energy_2, 40)
-    indices = np.where(spectral_energy_2 > threshold)[0]
-
-    # get the indices of the frames that satisfy the thresholding
-    index = 0
-    seg_limits = []
-    time_clusters = []
-
-    # Step 4B: group frame indices to onset segments
-    while index < len(indices):
-        # for each of the detected onset indices
-        cur_cluster = [indices[index]]
-        if index == len(indices)-1:
-            break
-        while indices[index+1] - cur_cluster[-1] <= 2:
-            cur_cluster.append(indices[index+1])
-            index += 1
-            if index == len(indices)-1:
-                break
-        index += 1
-        time_clusters.append(cur_cluster)
-        seg_limits.append([cur_cluster[0] * 0.002,
-                           cur_cluster[-1] * 0.002])
-    print(seg_limits)
-    # Step 5: Post process: remove very small segments:
-    min_duration = 0.05
-    seg_limits_2 = []
-    for s_lim in seg_limits:
-        if s_lim[1] - s_lim[0] > min_duration:
-            seg_limits_2.append(s_lim)
-    print(seg_limits_2)
-    max_e = spectral_energy_1.max()
-    seg_limits = seg_limits_2
-
+    seg_limits = ap.get_syllabes(spectral_energy_2, ST_STEP,
+                                 threshold=40, min_duration=0.05)
     shapes1, shapes2 = [], []
-    for s in seg_limits_2:
+    for s in seg_limits:
         s1 = {
-            'type': 'rect', 'x0': s[0], 'y0': 0, 'x1': s[1], 'y1': max_e,
-            'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
-            'fillcolor': 'rgba(128, 0, 128, 0.4)'}
-        shapes1.append(s1)
-        s2 = {
             'type': 'rect', 'x0': s[0], 'y0': 20000, 'x1': s[1], 'y1': 100000,
             'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
             'fillcolor': 'rgba(128, 0, 128, 0.1)'}
+        shapes1.append(s1)
+        s2 = {
+            'type': 'rect', 'x0': s[0], 'y0': 0, 'x1': s[1],
+            'y1': spectral_energy_2.max(),
+            'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
+            'fillcolor': 'rgba(128, 0, 128, 0.4)'}
         shapes2.append(s2)
 
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
-    colors = colors = {
-    'background': '#111111',
-    'text': '#7FDBFF'
-    }
 
     app.layout = html.Div(children=[
         html.H1(children='AMVOC',
@@ -127,7 +90,7 @@ if __name__ == "__main__":
                 'layout': go.Layout(
                      xaxis=dict(title='Time (Sec)'),
                      yaxis=dict(title='Freq (Hz)'),
-                     shapes=shapes2
+                     shapes=shapes1
                 )}),
         dcc.Graph(
             id='energy',
@@ -137,7 +100,7 @@ if __name__ == "__main__":
                 'layout': go.Layout(
                     xaxis=dict(title='Time (Sec)'),
                     yaxis=dict(title='Energy'), showlegend=False,
-                    shapes=shapes1)})])
+                    shapes=shapes2)})])
         ])
 
 

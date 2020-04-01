@@ -34,3 +34,39 @@ def get_spectrogram(path, win, step):
     #    f, f_n  = sF.feature_extraction(s, fs, win * fs / 1000.0,
     #                                    step * fs / 1000.0, deltas=True)
     return spec_val, np.array(spec_time), np.array(spec_freq)
+
+
+def get_syllabes(feature_sequence, win_step, threshold=40,
+                 min_duration=0.05):
+
+    threshold = np.percentile(feature_sequence, threshold)
+    indices = np.where(feature_sequence > threshold)[0]
+    print(indices)
+
+    # get the indices of the frames that satisfy the thresholding
+    index, seg_limits, time_clusters = 0, [], []
+
+    # group frame indices to onset segments
+    while index < len(indices):
+        # for each of the detected onset indices
+        cur_cluster = [indices[index]]
+        if index == len(indices)-1:
+            break
+        while indices[index+1] - cur_cluster[-1] <= 2:
+            cur_cluster.append(indices[index+1])
+            index += 1
+            if index == len(indices)-1:
+                break
+        index += 1
+        time_clusters.append(cur_cluster)
+        seg_limits.append([cur_cluster[0] * win_step,
+                           cur_cluster[-1] * win_step])
+    print(seg_limits)
+    # post process: remove very small segments:
+    seg_limits_2 = []
+    for s_lim in seg_limits:
+        if s_lim[1] - s_lim[0] > min_duration:
+            seg_limits_2.append(s_lim)
+
+    return seg_limits_2
+
