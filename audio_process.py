@@ -14,17 +14,15 @@ import os
 
 def get_spectrogram(path, win, step):
     fs, s = io.read_audio_file(path)
-    print(round(fs * win))
-    print(round(fs * step))
     cache_name = path + "_{0:.6f}_{1:.6f}.npz".format(win, step)
     if os.path.isfile(cache_name):
         print("LOAD")
         npzfile = np.load(cache_name)
-        print(npzfile.files)
         spec_val = npzfile["arr_0"]
         spec_time = npzfile["arr_1"]
         spec_freq = npzfile["arr_2"]
     else:
+        print("COMPUTING SPECTROGRAM")
         spec_val, spec_time, spec_freq = sF.spectrogram(s, fs,
                                                         round(fs * win),
                                                         round(fs * step),
@@ -33,11 +31,11 @@ def get_spectrogram(path, win, step):
         print("DONE")
     #    f, f_n  = sF.feature_extraction(s, fs, win * fs / 1000.0,
     #                                    step * fs / 1000.0, deltas=True)
-    return spec_val, np.array(spec_time), np.array(spec_freq)
+    return spec_val, np.array(spec_time), np.array(spec_freq), fs
 
 
 def get_syllables(feature_sequence, win_step, threshold=40,
-                 min_duration=0.05):
+                  min_duration=0.05):
 
     threshold = np.percentile(feature_sequence, threshold)
     indices = np.where(feature_sequence > threshold)[0]
