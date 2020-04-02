@@ -20,7 +20,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
 ST_WIN = 0.005  # short-term window
-ST_STEP = 0.002  # short-term step
+ST_STEP = 0.005  # short-term step
 #st_step_vis = ST_STEP * 5
 
 F1 = 0.2
@@ -62,17 +62,20 @@ def get_layout():
                                   spectral_energy_1.max())
 
     layout = html.Div(children=[
-        html.H1(children='AMVOC', style={'textAlign': 'center',
+        html.H2(children='AMVOC', style={'textAlign': 'center',
                                          'color': colors['text']}),
-        html.Div(children='Analysis of Mouse Vocal Communication',
-                 style={'textAlign': 'center', 'color': colors['text']}),
 
-        dcc.Slider(
-            id="slider_thres", min=0.3, step=0.05, max=0.7,
-            marks={i: str(i) for i in [0.3, 0.4, 0.5, 0.6, 0.7]},
-            value=0.4,
-        ),
-        html.Div(id='thres_text'),
+        html.Div([
+            html.Div([
+                html.Div(children='Thres = 0.4' ,
+                         style={'textAlign': 'center',
+                                'color': colors['text']},
+                         id="aaa"),
+                dcc.Slider(
+                    id="slider_thres", min=0.3, step=0.05, max=0.7,
+                    marks={i: str(i) for i in [0.3, 0.4, 0.5, 0.6, 0.7]},
+                    value=0.4)], className="two columns")
+            ], className="row"),
 
         html.Div([
             dcc.Graph(
@@ -136,7 +139,8 @@ if __name__ == "__main__":
 
 
     @app.callback([Output('heatmap1', 'figure'),
-                   Output('energy', 'figure')],
+                   Output('energy', 'figure'),
+                   Output('aaa', 'children')],
                   [Input('intermediate-value', 'children')])
     def update_graph(val):
         # get vocalization syllables from thresholding of the feature sequence
@@ -162,7 +166,7 @@ if __name__ == "__main__":
                 yaxis=dict(title='Energy'), showlegend=False,
                 shapes=shapes2)
         }
-        return fig1, fig2
+        return fig1, fig2, "Thres = {0:.2f}".format(val)
 
 
     app.run_server(debug=True)
