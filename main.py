@@ -23,8 +23,9 @@ ST_WIN = 0.005  # short-term window
 ST_STEP = 0.002  # short-term step
 #st_step_vis = ST_STEP * 5
 
-F1 = 25000
-F2 = 85000
+F1 = 0.2
+F2 = 0.8
+
 
 def parse_arguments():
     """Parse arguments for real time demo.
@@ -35,66 +36,97 @@ def parse_arguments():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    args = parse_arguments()
+def get_shapes(segments, freq1, freq2, max_t):
+    # create rectangles to draw syllables
+    shapes1, shapes2 = [], []
+    for s in segments:
+        s1 = {
+            'type': 'rect', 'x0': s[0], 'y0': freq1, 'x1': s[1], 'y1': freq2,
+            'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
+            'fillcolor': 'rgba(128, 0, 128, 0.1)'}
+        shapes1.append(s1)
+        s2 = {
+            'type': 'rect', 'x0': s[0], 'y0': 0, 'x1': s[1], 'y1': max_t,
+            'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
+            'fillcolor': 'rgba(128, 0, 128, 0.4)'}
+        shapes2.append(s2)
+    return shapes1, shapes2
 
-    # feature (spectrogram) extraction:
-    sp, sp_time, sp_freq = ap.get_spectrogram(args.input_file, ST_WIN, ST_STEP)
-    print(sp.shape, len(sp_time), len(sp_freq))
-#    sp = sp[0::5, 0::5]
-#    sp_time = sp_time[0::5]
-#    sp_freq = sp_freq[0::5]
-#    st_step = ST_STEP / 5
-#    print(sp.shape, len(sp_time), len(sp_freq))
 
-    # define feature sequence for vocalization detection
-    f1 = np.argmin(np.abs(sp_freq - F1))
-    f2 = np.argmin(np.abs(sp_freq - F2))
-    spectral_energy_1 = sp.sum(axis=1)
-    spectral_energy_2 = sp[:, f1:f2].sum(axis=1)
+def get_layout():
+    thres = 0.4
+    seg_limits = ap.get_syllables(spectral_energy_2, ST_STEP,
+                                  threshold=thres * 100,
+                                  min_duration=0.05)
+    shapes1, shapes2 = get_shapes(seg_limits, f_low, f_high,
+                                  spectral_energy_1.max())
 
-    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
-    app.layout = html.Div(children=[
+    layout = html.Div(children=[
         html.H1(children='AMVOC', style={'textAlign': 'center',
                                          'color': colors['text']}),
         html.Div(children='Analysis of Mouse Vocal Communication',
-                 style={ 'textAlign': 'center', 'color': colors['text']}),
+                 style={'textAlign': 'center', 'color': colors['text']}),
 
-        html.Label('Slider'),
         dcc.Slider(
-            id="slider_thres",
-            min=0.3,
-            step=0.1,
-            max=0.7,
+            id="slider_thres", min=0.3, step=0.05, max=0.7,
             marks={i: str(i) for i in [0.3, 0.4, 0.5, 0.6, 0.7]},
             value=0.4,
         ),
         html.Div(id='thres_text'),
 
         html.Div([
-        dcc.Graph(
-            id='heatmap1',
-            figure={
-                'data': [go.Heatmap(x=sp_time, y=sp_freq, z=sp.T,
-                                    name='F', colorscale='Jet',
-                                    showscale=False)],
-                'layout': go.Layout(
-                     xaxis=dict(title='Time (Sec)'),
-                     yaxis=dict(title='Freq (Hz)'))
-            }),
-        dcc.Graph(
-            id='energy',
-            figure = {
-            'data': [go.Scatter(x=sp_time, y=spectral_energy_1),
-                     go.Scatter(x=sp_time, y=spectral_energy_2)],
-            'layout': go.Layout(
-                xaxis=dict(title='Time (Sec)'),
-                yaxis=dict(title='Energy'), showlegend=False)
-        }
-        )]),
+            dcc.Graph(
+                id='heatmap1',
+                figure={
+                    'data': [go.Heatmap(x=sp_time, y=sp_freq, z=spectrogram.T,
+                                        name='F', colorscale='Jet',
+                                        showscale=False)],
+                    'layout': go.Layout(
+                        xaxis=dict(title='Time (Sec)'),
+                        yaxis=dict(title='Freq (Hz)'),
+                        shapes=shapes1)
+                }),
+            dcc.Graph(
+                id='energy',
+                figure={
+                    'data': [go.Scatter(x=sp_time, y=spectral_energy_1),
+                             go.Scatter(x=sp_time, y=spectral_energy_2)],
+                    'layout': go.Layout(
+                        xaxis=dict(title='Time (Sec)'),
+                        yaxis=dict(title='Energy'), showlegend=False,
+                        shapes=shapes2)
+                }
+            )]),
         html.Div(id='intermediate-value', style={'display': 'none'})
     ])
+
+    return layout
+
+
+if __name__ == "__main__":
+    args = parse_arguments()
+
+    # feature (spectrogram) extraction:
+    spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
+                                                           ST_WIN, ST_STEP)
+
+    f_low, f_high = F1 * fs / 2.0, F2 * fs / 2.0
+    print(f_low, f_high)
+    #    spectrogram = spectrogram[0::5, 0::5]
+    #    spectrogram_time = spectrogram_time[0::5]
+    #    spectrogram_freq = spectrogram_freq[0::5]
+    #    st_step = ST_STEP / 5
+
+    # define feature sequence for vocalization detection
+    f1 = np.argmin(np.abs(sp_freq - f_low))
+    f2 = np.argmin(np.abs(sp_freq - f_high))
+
+    spectral_energy_1 = spectrogram.sum(axis=1)
+    spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
+
+    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+
+    app.layout = get_layout()
 
     @app.callback(
         Output('intermediate-value', component_property='children'),
@@ -106,35 +138,19 @@ if __name__ == "__main__":
     @app.callback([Output('heatmap1', 'figure'),
                    Output('energy', 'figure')],
                   [Input('intermediate-value', 'children')])
-
     def update_graph(val):
-        print(val)
         # get vocalization syllables from thresholding of the feature sequence
         seg_limits = ap.get_syllables(spectral_energy_2, ST_STEP,
                                       threshold=val*100, min_duration=0.05)
-        print(seg_limits)
-        # create rectangles to draw syllables
-        shapes1, shapes2 = [], []
-        for s in seg_limits:
-            s1 = {
-                'type': 'rect', 'x0': s[0], 'y0': F1, 'x1': s[1], 'y1': F2,
-                'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
-                'fillcolor': 'rgba(128, 0, 128, 0.1)'}
-            shapes1.append(s1)
-            s2 = {
-                'type': 'rect', 'x0': s[0], 'y0': 0, 'x1': s[1],
-                'y1': spectral_energy_1.max(),
-                'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
-                'fillcolor': 'rgba(128, 0, 128, 0.4)'}
-            shapes2.append(s2)
+        shapes1, shapes2 = get_shapes(seg_limits, f_low, f_high,
+                                      spectral_energy_1.max())
 
         fig1 = {
-            'data': [go.Heatmap(x=sp_time, y=sp_freq, z=sp.T,
+            'data': [go.Heatmap(x=sp_time, y=sp_freq, z=spectrogram.T,
                                 name='F', colorscale='Jet',
                                 showscale=False)],
             'layout': go.Layout(
-                xaxis=dict(title='Time (Sec)'),
-                yaxis=dict(title='Freq (Hz)'),
+                xaxis=dict(title='Time (Sec)'), yaxis=dict(title='Freq (Hz)'),
                 shapes=shapes1)
         }
 
@@ -146,7 +162,7 @@ if __name__ == "__main__":
                 yaxis=dict(title='Energy'), showlegend=False,
                 shapes=shapes2)
         }
-
         return fig1, fig2
+
 
     app.run_server(debug=True)
