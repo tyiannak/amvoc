@@ -75,7 +75,30 @@ def get_layout():
                     id="slider_thres", min=0.3, step=0.05, max=0.7,
                     marks={i: str(i) for i in [0.3, 0.4, 0.5, 0.6, 0.7]},
                     value=0.4)], className="two columns")
-            ], className="row"),
+            ]),
+
+        html.Div([
+            html.Div([
+                html.Label(id="label_sel_start", children="Selected start",
+                           style={'textAlign': 'center',
+                                  'color': colors['text']}),
+                html.Label(id="label_sel_end", children="Selected end",
+                           style={'textAlign': 'center',
+                                  'color': colors['text']}),
+                dcc.Dropdown(
+                    id='dropdown_class',
+                    options=[
+                        {'label': 'no-class', 'value': 'no'},
+                        {'label': 'class1', 'value': 'c1'},
+                        {'label': 'class1', 'value': 'c2'},
+                        {'label': 'class1', 'value': 'c3'},
+                        {'label': 'class1', 'value': 'c4'},
+                    ],
+                    value='no'
+                ),
+
+            ], className="two columns")
+        ], className="row"),
 
         html.Div([
             dcc.Graph(
