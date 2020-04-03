@@ -90,9 +90,9 @@ def get_layout():
                     options=[
                         {'label': 'no-class', 'value': 'no'},
                         {'label': 'class1', 'value': 'c1'},
-                        {'label': 'class1', 'value': 'c2'},
-                        {'label': 'class1', 'value': 'c3'},
-                        {'label': 'class1', 'value': 'c4'},
+                        {'label': 'class2', 'value': 'c2'},
+                        {'label': 'class3', 'value': 'c3'},
+                        {'label': 'class4', 'value': 'c4'},
                     ],
                     value='no'
                 ),
@@ -153,6 +153,21 @@ if __name__ == "__main__":
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
     app.layout = get_layout()
+
+    @app.callback(
+        [Output('label_sel_start', 'children'),
+         Output('label_sel_end', 'children')],
+        [Input('heatmap1', 'clickData')])
+    def display_click_data(click_data):
+        print(click_data)
+        t1, t2 = 0.0, 0.0
+        if click_data:
+            if len(click_data["points"]) > 0:
+                t = click_data["points"][0]["x"]
+                t1 = t - 0.5 # TODO
+                t2 = t + 0.5 # TODO
+        return "{0:.2f}".format(t1), "{0:.2f}".format(t2) 
+
 
     @app.callback(
         Output('intermediate-value', component_property='children'),
