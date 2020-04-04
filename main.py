@@ -15,6 +15,7 @@ import numpy as np
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 import audio_process as ap
+import json
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 colors = {'background': '#111111', 'text': '#7FDBFF'}
@@ -70,7 +71,7 @@ def get_layout():
                 html.Div(children='Thres = 0.4' ,
                          style={'textAlign': 'center',
                                 'color': colors['text']},
-                         id="aaa"),
+                         id="label_thres"),
                 dcc.Slider(
                     id="slider_thres", min=0.3, step=0.05, max=0.7,
                     marks={i: str(i) for i in [0.3, 0.4, 0.5, 0.6, 0.7]},
@@ -93,10 +94,8 @@ def get_layout():
                         {'label': 'class2', 'value': 'c2'},
                         {'label': 'class3', 'value': 'c3'},
                         {'label': 'class4', 'value': 'c4'},
-                    ],
-                    value='no'
+                    ], value='no'
                 ),
-
             ], className="two columns")
         ], className="row"),
 
@@ -123,7 +122,11 @@ def get_layout():
                         shapes=shapes2)
                 }
             )]),
-        html.Div(id='intermediate-value', style={'display': 'none'})
+        # these are intermediate values to be used for sharing content
+        # between callbacks
+        # (see here https://dash.plotly.com/sharing-data-between-callbacks)
+        html.Div(id='intermediate_val_thres', style={'display': 'none'}),
+        html.Div(id='intermediate_val_syllables', style={'display': 'none'})
     ])
 
     return layout
@@ -151,26 +154,10 @@ if __name__ == "__main__":
     spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
 
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
     app.layout = get_layout()
 
     @app.callback(
-        [Output('label_sel_start', 'children'),
-         Output('label_sel_end', 'children')],
-        [Input('heatmap1', 'clickData')])
-    def display_click_data(click_data):
-        print(click_data)
-        t1, t2 = 0.0, 0.0
-        if click_data:
-            if len(click_data["points"]) > 0:
-                t = click_data["points"][0]["x"]
-                t1 = t - 0.5 # TODO
-                t2 = t + 0.5 # TODO
-        return "{0:.2f}".format(t1), "{0:.2f}".format(t2) 
-
-
-    @app.callback(
-        Output('intermediate-value', component_property='children'),
+        Output('intermediate_val_thres', component_property='children'),
         [Input('slider_thres', 'value')])
     def update_thres(val):
         return val
@@ -178,12 +165,15 @@ if __name__ == "__main__":
 
     @app.callback([Output('heatmap1', 'figure'),
                    Output('energy', 'figure'),
-                   Output('aaa', 'children')],
-                  [Input('intermediate-value', 'children')])
+                   Output('label_thres', 'children'),
+                   Output('intermediate_val_syllables', 'children')],
+                  [Input('intermediate_val_thres', 'children')])
     def update_graph(val):
         # get vocalization syllables from thresholding of the feature sequence
         seg_limits = ap.get_syllables(spectral_energy_2, ST_STEP,
                                       threshold=val*100, min_duration=0.05)
+        syllables = [{"st": s[0], "et": s[1], "label": ""} for s in seg_limits]
+
         shapes1, shapes2 = get_shapes(seg_limits, f_low, f_high,
                                       spectral_energy_1.max())
 
@@ -204,7 +194,32 @@ if __name__ == "__main__":
                 yaxis=dict(title='Energy'), showlegend=False,
                 shapes=shapes2)
         }
-        return fig1, fig2, "Thres = {0:.2f}".format(val)
+        return fig1, fig2, "Thres = {0:.2f}".format(val), json.dumps(syllables)
+
+
+    @app.callback(
+        [Output('label_sel_start', 'children'),
+         Output('label_sel_end', 'children')],
+        [Input('heatmap1', 'clickData'),
+         Input('intermediate_val_syllables', 'children')])
+    def display_click_data(click_data, syllables_str):
+        if syllables_str:
+            syllables = json.loads(syllables_str)
+        else:
+            syllables = []
+        print(click_data)
+        t1, t2 = 0.0, 0.0
+        if click_data:
+            if len(click_data["points"]) > 0:
+                t = click_data["points"][0]["x"]
+                found_syllable = None
+                for i_s, s in enumerate(syllables):
+                    if s["st"] < t and s["et"] > t:
+                        found_syllable = i_s
+                        t1 = s["st"]
+                        t2 = s["et"]
+                        break
+        return "{0:.2f}".format(t1), "{0:.2f}".format(t2)
 
 
     app.run_server(debug=True)
