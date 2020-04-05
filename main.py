@@ -13,7 +13,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 import plotly.graph_objs as go
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import audio_process as ap
 import json
 
@@ -126,7 +126,9 @@ def get_layout():
         # between callbacks
         # (see here https://dash.plotly.com/sharing-data-between-callbacks)
         html.Div(id='intermediate_val_thres', style={'display': 'none'}),
-        html.Div(id='intermediate_val_syllables', style={'display': 'none'})
+        html.Div(id='intermediate_val_syllables', style={'display': 'none'}),
+        html.Div(id='intermediate_val_selected_syllable',
+                 style={'display': 'none'})
     ])
 
     return layout
@@ -165,14 +167,16 @@ if __name__ == "__main__":
 
     @app.callback([Output('heatmap1', 'figure'),
                    Output('energy', 'figure'),
-                   Output('label_thres', 'children'),
-                   Output('intermediate_val_syllables', 'children')],
+                   Output('label_thres', 'children')],
                   [Input('intermediate_val_thres', 'children')])
     def update_graph(val):
         # get vocalization syllables from thresholding of the feature sequence
         seg_limits = ap.get_syllables(spectral_energy_2, ST_STEP,
                                       threshold=val*100, min_duration=0.05)
         syllables = [{"st": s[0], "et": s[1], "label": ""} for s in seg_limits]
+
+        with open('annotations.json', 'w') as outfile:
+            json.dump(syllables, outfile)
 
         shapes1, shapes2 = get_shapes(seg_limits, f_low, f_high,
                                       spectral_energy_1.max())
@@ -194,32 +198,50 @@ if __name__ == "__main__":
                 yaxis=dict(title='Energy'), showlegend=False,
                 shapes=shapes2)
         }
-        return fig1, fig2, "Thres = {0:.2f}".format(val), json.dumps(syllables)
+        return fig1, fig2, "Thres = {0:.2f}".format(val)
 
 
+    
     @app.callback(
         [Output('label_sel_start', 'children'),
-         Output('label_sel_end', 'children')],
-        [Input('heatmap1', 'clickData'),
-         Input('intermediate_val_syllables', 'children')])
-    def display_click_data(click_data, syllables_str):
-        if syllables_str:
-            syllables = json.loads(syllables_str)
-        else:
-            syllables = []
-        print(click_data)
+         Output('label_sel_end', 'children'),
+         Output('intermediate_val_selected_syllable', 'children'),
+         Output('dropdown_class', 'value')],
+        [Input('heatmap1', 'clickData')])
+    def display_click_data(click_data):
+        with open('annotations.json') as json_file:
+            syllables = json.load(json_file)
         t1, t2 = 0.0, 0.0
+        i_s = -1
+        found = False
         if click_data:
             if len(click_data["points"]) > 0:
                 t = click_data["points"][0]["x"]
-                found_syllable = None
                 for i_s, s in enumerate(syllables):
                     if s["st"] < t and s["et"] > t:
-                        found_syllable = i_s
                         t1 = s["st"]
                         t2 = s["et"]
+                        l = s["label"]
+                        found = True
                         break
-        return "{0:.2f}".format(t1), "{0:.2f}".format(t2)
+        if not found:
+            i_s = -1
+            l = ""
+        return "{0:.2f}".format(t1), "{0:.2f}".format(t2), "{0:d}".format(i_s), l
+
+
+
+    @app.callback(
+        Output('intermediate_val_syllables', 'children'),
+        [Input('dropdown_class', 'value'),
+         Input('intermediate_val_selected_syllable', 'children')])
+    def update_annotations(dropdown, selected):
+        with open('annotations.json') as json_file:
+            syllables = json.load(json_file)
+
+        print(syllables, dropdown, selected)
+
+        return ""
 
 
     app.run_server(debug=True)
