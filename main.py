@@ -201,7 +201,17 @@ if __name__ == "__main__":
         return fig1, fig2, "Thres = {0:.2f}".format(val)
 
 
-    
+    """
+    On-spectrogram-click callback: 
+        1) load syllables from json file
+        2) find if selected point belongs in segment and 
+           "select" segment (syllable)
+        3) return:
+            3.1) start and end time of selected syllable (update text boxes)
+            3.2) update intermediate variable for selected syllable ID
+            3.3) read class label of selected syllable 
+                 and update class dropdown menu of class name
+    """
     @app.callback(
         [Output('label_sel_start', 'children'),
          Output('label_sel_end', 'children'),
@@ -221,13 +231,14 @@ if __name__ == "__main__":
                     if s["st"] < t and s["et"] > t:
                         t1 = s["st"]
                         t2 = s["et"]
-                        l = s["label"]
+                        syllable_label = s["label"]
                         found = True
                         break
         if not found:
             i_s = -1
-            l = ""
-        return "{0:.2f}".format(t1), "{0:.2f}".format(t2), "{0:d}".format(i_s), l
+            syllable_label = ""
+        return "{0:.2f}".format(t1), "{0:.2f}".format(t2), \
+               "{0:d}".format(i_s), syllable_label
 
 
 
@@ -235,13 +246,16 @@ if __name__ == "__main__":
         Output('intermediate_val_syllables', 'children'),
         [Input('dropdown_class', 'value'),
          Input('intermediate_val_selected_syllable', 'children')])
-    def update_annotations(dropdown, selected):
+    def update_annotations(dropdown_class, selected):
         with open('annotations.json') as json_file:
             syllables = json.load(json_file)
+        print(syllables, dropdown_class, selected)
+        if dropdown_class and selected:
+            syllables[int(selected)]["label"] = dropdown_class
+            with open('annotations.json', 'w') as outfile:
+                json.dump(syllables, outfile)
 
-        print(syllables, dropdown, selected)
-
-        return ""
+        return "{}"
 
 
     app.run_server(debug=True)
