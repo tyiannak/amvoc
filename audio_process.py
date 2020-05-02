@@ -11,7 +11,6 @@ from pyAudioAnalysis import ShortTermFeatures as sF
 import numpy as np
 import os
 
-
 def get_spectrogram(path, win, step):
     """
     get_spectrogram() is a wrapper to
@@ -43,13 +42,19 @@ def get_spectrogram(path, win, step):
     return spec_val, np.array(spec_time), np.array(spec_freq), fs
 
 
-def get_syllables(feature_sequence, win_step, threshold=40,
+def get_syllables(feature_sequence, win_step, threshold_per=40,
                   min_duration=0.05):
-
-    threshold = np.percentile(feature_sequence, threshold)
-    indices = np.where(feature_sequence > threshold)[0]
+    global_mean = np.mean(feature_sequence)
+    filter_size = 1500
+    smooth_filter = np.ones(filter_size) / filter_size
+    threshold = threshold_per * (0.5 * np.convolve(feature_sequence, smooth_filter,
+                                             mode="same") +
+                                 0.5 * global_mean) \
+                / 100.0
 
     # get the indices of the frames that satisfy the thresholding
+    indices = np.where(feature_sequence > threshold)[0]
+
     index, seg_limits, time_clusters = 0, [], []
 
     # group frame indices to onset segments
@@ -74,5 +79,5 @@ def get_syllables(feature_sequence, win_step, threshold=40,
         if s_lim[1] - s_lim[0] > min_duration:
             seg_limits_2.append(s_lim)
 
-    return seg_limits_2
+    return seg_limits_2, threshold
 
