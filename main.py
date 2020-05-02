@@ -55,10 +55,10 @@ def get_shapes(segments, freq1, freq2, max_t):
 
 
 def get_layout():
-    thres = 0.4
-    seg_limits = ap.get_syllables(spectral_energy_2, ST_STEP,
-                                  threshold=thres * 100,
-                                  min_duration=0.05)
+    thres = 1.1
+    seg_limits, thres_sm = ap.get_syllables(spectral_energy_2, ST_STEP,
+                                            threshold_per=thres * 100,
+                                            min_duration=0.05)
     shapes1, shapes2 = get_shapes(seg_limits, f_low, f_high,
                                   spectral_energy_1.max())
 
@@ -73,9 +73,9 @@ def get_layout():
                                 'color': colors['text']},
                          id="label_thres"),
                 dcc.Slider(
-                    id="slider_thres", min=0.3, step=0.05, max=0.7,
-                    marks={i: str(i) for i in [0.3, 0.4, 0.5, 0.6, 0.7]},
-                    value=0.4)], className="two columns")
+                    id="slider_thres", min=0.9, step=0.05, max=1.3,
+                    marks={i: str(i) for i in [0.9, 1.0, 1.1, 1.2, 1.3]},
+                    value=1.1)], className="two columns")
             ]),
 
         html.Div([
@@ -115,7 +115,8 @@ def get_layout():
                 id='energy',
                 figure={
                     'data': [go.Scatter(x=sp_time, y=spectral_energy_1),
-                             go.Scatter(x=sp_time, y=spectral_energy_2)],
+                             go.Scatter(x=sp_time, y=spectral_energy_2),
+                             go.Scatter(x=sp_time, y=thres_sm)],
                     'layout': go.Layout(
                         xaxis=dict(title='Time (Sec)'),
                         yaxis=dict(title='Energy'), showlegend=False,
@@ -171,8 +172,9 @@ if __name__ == "__main__":
                   [Input('intermediate_val_thres', 'children')])
     def update_graph(val):
         # get vocalization syllables from thresholding of the feature sequence
-        seg_limits = ap.get_syllables(spectral_energy_2, ST_STEP,
-                                      threshold=val*100, min_duration=0.05)
+        seg_limits, sm = ap.get_syllables(spectral_energy_2, ST_STEP,
+                                          threshold_per=val*100,
+                                          min_duration=0.05)
         syllables = [{"st": s[0], "et": s[1], "label": ""} for s in seg_limits]
 
         with open('annotations.json', 'w') as outfile:
@@ -192,7 +194,8 @@ if __name__ == "__main__":
 
         fig2 = {
             'data': [go.Scatter(x=sp_time, y=spectral_energy_1),
-                     go.Scatter(x=sp_time, y=spectral_energy_2)],
+                     go.Scatter(x=sp_time, y=spectral_energy_2),
+                     go.Scatter(x=sp_time, y=sm)],
             'layout': go.Layout(
                 xaxis=dict(title='Time (Sec)'),
                 yaxis=dict(title='Energy'), showlegend=False,
