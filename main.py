@@ -20,10 +20,10 @@ import json
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
-ST_WIN = 0.005  # short-term window
-ST_STEP = 0.005  # short-term step
-#st_step_vis = ST_STEP * 5
+ST_WIN = 0.002  # short-term window
+ST_STEP = 0.002  # short-term step
 
+# The frequencies used for spectral energy calculation (Fs/2 normalized):
 F1 = 0.2
 F2 = 0.8
 
