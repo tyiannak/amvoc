@@ -13,6 +13,15 @@ import os
 
 
 def get_spectrogram(path, win, step):
+    """
+    get_spectrogram() is a wrapper to
+    pyAudioAnalysis.ShortTermFeatures.spectrogram() with a caching functionality
+
+    :param path: path of the WAV file to analyze
+    :param win: short-term window to be used in spectrogram calculation
+    :param step: short-term step to be used in spectrogram calculation
+    :return: spectrogram matrix, time array, freq array and sampling freq
+    """
     fs, s = io.read_audio_file(path)
     cache_name = path + "_{0:.6f}_{1:.6f}.npz".format(win, step)
     if os.path.isfile(cache_name):
