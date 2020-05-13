@@ -43,7 +43,7 @@ def get_spectrogram(path, win, step):
 
 
 def get_syllables(feature_sequence, win_step, threshold_per=40,
-                  min_duration=0.05):
+                  min_duration=0.02):
     global_mean = np.mean(feature_sequence)
     filter_size = 1500
     smooth_filter = np.ones(filter_size) / filter_size

@@ -20,11 +20,12 @@ import json
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
-ST_WIN = 0.002  # short-term window
+ST_WIN = 0.001   # short-term window
 ST_STEP = 0.002  # short-term step
+MIN_VOC_DUR = 0.005
 
 # The frequencies used for spectral energy calculation (Fs/2 normalized):
-F1 = 0.2
+F1 = 0.3
 F2 = 0.8
 
 
@@ -58,7 +59,7 @@ def get_layout():
     thres = 1.1
     seg_limits, thres_sm = ap.get_syllables(spectral_energy_2, ST_STEP,
                                             threshold_per=thres * 100,
-                                            min_duration=0.05)
+                                            min_duration=MIN_VOC_DUR)
     shapes1, shapes2 = get_shapes(seg_limits, f_low, f_high,
                                   spectral_energy_1.max())
 
@@ -174,7 +175,7 @@ if __name__ == "__main__":
         # get vocalization syllables from thresholding of the feature sequence
         seg_limits, sm = ap.get_syllables(spectral_energy_2, ST_STEP,
                                           threshold_per=val*100,
-                                          min_duration=0.05)
+                                          min_duration=MIN_VOC_DUR)
         syllables = [{"st": s[0], "et": s[1], "label": ""} for s in seg_limits]
 
         with open('annotations.json', 'w') as outfile:
