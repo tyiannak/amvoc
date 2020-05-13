@@ -56,7 +56,7 @@ def get_syllables(feature_sequence, win_step, threshold_per=40,
     """
     # Step 1: dynamic threshold computation (threshold is a sequence):
     global_mean = np.mean(feature_sequence)
-    filter_size = 3 / win_step
+    filter_size = int(3 / win_step)
     smooth_filter = np.ones(filter_size) / filter_size
     threshold = threshold_per * (0.5 * np.convolve(feature_sequence,
                                                    smooth_filter, mode="same") +
