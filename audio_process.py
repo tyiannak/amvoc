@@ -44,17 +44,29 @@ def get_spectrogram(path, win, step):
 
 def get_syllables(feature_sequence, win_step, threshold_per=40,
                   min_duration=0.02):
+    """
+    The basic vocalization (syllable) detection method
+    :param feature_sequence: the input feature sequence
+    :param win_step: window step (in msecs) used in feature extraction
+    :param threshold_per: threshold parameter (percentage)
+    :param min_duration: minimum vocalization duration
+    :return:
+      1) segment limits of detected syllables
+      2) dynamic threshold sequence
+    """
+    # Step 1: dynamic threshold computation (threshold is a sequence):
     global_mean = np.mean(feature_sequence)
-    filter_size = 1500
+    filter_size = 3 / win_step
     smooth_filter = np.ones(filter_size) / filter_size
-    threshold = threshold_per * (0.5 * np.convolve(feature_sequence, smooth_filter,
-                                             mode="same") +
-                                 0.5 * global_mean) \
-                / 100.0
+    threshold = threshold_per * (0.5 * np.convolve(feature_sequence,
+                                                   smooth_filter, mode="same") +
+                                 0.5 * global_mean) / 100.0
 
-    # get the indices of the frames that satisfy the thresholding
+    # Step 2: run the thresholding
+    # (get the indices of the frames that satisfy the thresholding)
     indices = np.where(feature_sequence > threshold)[0]
 
+    # Step 3: window indices to segment limits
     index, seg_limits, time_clusters = 0, [], []
 
     # group frame indices to onset segments
@@ -73,11 +85,10 @@ def get_syllables(feature_sequence, win_step, threshold_per=40,
         seg_limits.append([cur_cluster[0] * win_step,
                            cur_cluster[-1] * win_step])
 
-    # post process: remove very small segments:
+    # Step 4: post process (remove very small segments)
     seg_limits_2 = []
     for s_lim in seg_limits:
         if s_lim[1] - s_lim[0] > min_duration:
             seg_limits_2.append(s_lim)
 
     return seg_limits_2, threshold
-
