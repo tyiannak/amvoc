@@ -56,11 +56,11 @@ def get_syllables(feature_sequence, win_step, threshold_per=40,
     """
     # Step 1: dynamic threshold computation (threshold is a sequence):
     global_mean = np.mean(feature_sequence)
-    filter_size = int(3 / win_step)
+    filter_size = int(2 / win_step)
     smooth_filter = np.ones(filter_size) / filter_size
-    threshold = threshold_per * (0.5 * np.convolve(feature_sequence,
+    threshold = threshold_per * (0.2 * np.convolve(feature_sequence,
                                                    smooth_filter, mode="same") +
-                                 0.5 * global_mean) / 100.0
+                                 0.8 * global_mean) / 100.0
 
     # Step 2: run the thresholding
     # (get the indices of the frames that satisfy the thresholding)
@@ -82,8 +82,8 @@ def get_syllables(feature_sequence, win_step, threshold_per=40,
                 break
         index += 1
         time_clusters.append(cur_cluster)
-        seg_limits.append([cur_cluster[0] * win_step,
-                           cur_cluster[-1] * win_step])
+        seg_limits.append([cur_cluster[0] * win_step - win_step,
+                           cur_cluster[-1] * win_step + win_step])
 
     # Step 4: post process (remove very small segments)
     seg_limits_2 = []
