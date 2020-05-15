@@ -69,7 +69,7 @@ def get_layout():
 
         html.Div([
             html.Div([
-                html.Div(children='Thres = 0.4' ,
+                html.Div(children='Thres = 0.4',
                          style={'textAlign': 'center',
                                 'color': colors['text']},
                          id="label_thres"),
