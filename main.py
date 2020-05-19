@@ -24,9 +24,9 @@ ST_WIN = 0.001   # short-term window
 ST_STEP = 0.002  # short-term step
 MIN_VOC_DUR = 0.005
 
-# The frequencies used for spectral energy calculation (Fs/2 normalized):
-F1 = 0.3
-F2 = 0.8
+# The frequencies used for spectral energy calculation (Hz)
+F1 = 30000
+F2 = 100000
 
 
 def parse_arguments():
@@ -142,9 +142,9 @@ if __name__ == "__main__":
     # feature (spectrogram) extraction:
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
                                                            ST_WIN, ST_STEP)
+    f_low = F1 if F1 < fs / 2.0 else fs / 2.0
+    f_high = F2 if F2 < fs / 2.0 else fs / 2.0
 
-    f_low, f_high = F1 * fs / 2.0, F2 * fs / 2.0
-    print(f_low, f_high)
     #    spectrogram = spectrogram[0::5, 0::5]
     #    spectrogram_time = spectrogram_time[0::5]
     #    spectrogram_freq = spectrogram_freq[0::5]
