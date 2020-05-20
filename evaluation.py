@@ -7,7 +7,7 @@ import audio_process as ap
 import csv
 
 
-def read_ground_truth(filename, offset=10):
+def read_ground_truth(filename, offset=0):
     """
     :param filename: the path of the CSV segment file
     :return:
@@ -75,6 +75,8 @@ if __name__ == "__main__":
     # feature (spectrogram) extraction:
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
                                                            ST_WIN, ST_STEP)
+    duration = spectrogram.shape[0] * ST_STEP
+
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
 
@@ -92,24 +94,43 @@ if __name__ == "__main__":
 
     segs_gt, f_gt = read_ground_truth(args.ground_truth_file)
 
-    shapes, shapes_gt = [], []
+    shapes, shapes2, shapes_gt, shapes_gt2 = [], [], [], []
     for s in segs:
         s1 = {
             'type': 'rect', 'x0': s[0], 'y0': f_low, 'x1': s[1], 'y1': f_high,
             'line': {'color': 'rgba(50, 50, 128, 1)', 'width': 2},
             'fillcolor': 'rgba(50, 50, 128, 0.1)'}
+        s2 = {
+            'type': 'rect', 'x0': s[0], 'y0': 0, 'x1': s[1], 'y1': 1,
+            'line': {'color': 'rgba(50, 50, 128, 1)', 'width': 2},
+            'fillcolor': 'rgba(50, 50, 128, 0.1)'}
         shapes.append(s1)
+        shapes2.append(s2)
     for s in segs_gt:
         s1 = {
             'type': 'rect', 'x0': s[0], 'y0': f_low-1000, 'x1': s[1], 'y1': f_low,
             'line': {'color': 'rgba(128, 50, 50, 1)', 'width': 2},
             'fillcolor': 'rgba(128, 50, 50, 0.4)'}
+        s2 = {
+            'type': 'rect', 'x0': s[0], 'y0': 0, 'x1': s[1], 'y1': 0.1,
+            'line': {'color': 'rgba(128, 50, 50, 1)', 'width': 2},
+            'fillcolor': 'rgba(128, 50, 50, 0.4)'}
+
         shapes_gt.append(s1)
+        shapes_gt2.append(s2)
     heatmap = go.Heatmap(z=spectrogram.T, y=sp_freq, x=sp_time,  colorscale='Jet')
     layout = go.Layout(title='Evaluation', xaxis=dict(title='time (sec)', ),
                        yaxis=dict(title='Freqs (Hz)'))
+
     fig = go.Figure(data=[heatmap], layout=layout)
     fig.update_layout(shapes=shapes + shapes_gt)
     plotly.offline.plot(fig, filename="temp.html", auto_open=True)
 
-    temporal_evaluation(segs_gt, segs, 10)
+    fig2 = go.Figure(data=[go.Scatter(x=sp_time, y=spectral_energy_1),
+                     go.Scatter(x=sp_time, y=spectral_energy_2),
+                     go.Scatter(x=sp_time, y=spectral_energy_2 / spectral_energy_1),
+                     go.Scatter(x=sp_time, y=thres_sm)], layout=layout)
+    fig2.update_layout(shapes=shapes2 + shapes_gt2)
+    plotly.offline.plot(fig2, filename="temp2.html", auto_open=True)
+
+    temporal_evaluation(segs_gt, segs, duration)
