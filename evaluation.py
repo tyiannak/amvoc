@@ -101,7 +101,7 @@ if __name__ == "__main__":
             'line': {'color': 'rgba(50, 50, 128, 1)', 'width': 2},
             'fillcolor': 'rgba(50, 50, 128, 0.1)'}
         s2 = {
-            'type': 'rect', 'x0': s[0], 'y0': 0, 'x1': s[1], 'y1': 1,
+            'type': 'rect', 'x0': s[0], 'y0': -0.05, 'x1': s[1], 'y1': 0.0,
             'line': {'color': 'rgba(50, 50, 128, 1)', 'width': 2},
             'fillcolor': 'rgba(50, 50, 128, 0.1)'}
         shapes.append(s1)
@@ -112,25 +112,33 @@ if __name__ == "__main__":
             'line': {'color': 'rgba(128, 50, 50, 1)', 'width': 2},
             'fillcolor': 'rgba(128, 50, 50, 0.4)'}
         s2 = {
-            'type': 'rect', 'x0': s[0], 'y0': 0, 'x1': s[1], 'y1': 0.1,
+            'type': 'rect', 'x0': s[0], 'y0': -0.1, 'x1': s[1], 'y1': -0.05,
             'line': {'color': 'rgba(128, 50, 50, 1)', 'width': 2},
             'fillcolor': 'rgba(128, 50, 50, 0.4)'}
 
         shapes_gt.append(s1)
         shapes_gt2.append(s2)
-    heatmap = go.Heatmap(z=spectrogram.T, y=sp_freq, x=sp_time,  colorscale='Jet')
+    heatmap = go.Heatmap(z=spectrogram.T, y=sp_freq, x=sp_time,
+                         colorscale='Jet')
     layout = go.Layout(title='Evaluation', xaxis=dict(title='time (sec)', ),
                        yaxis=dict(title='Freqs (Hz)'))
 
     fig = go.Figure(data=[heatmap], layout=layout)
     fig.update_layout(shapes=shapes + shapes_gt)
-    plotly.offline.plot(fig, filename="temp.html", auto_open=True)
+    plotly.offline.plot(fig, filename="evaluation_1.html", auto_open=True)
 
-    fig2 = go.Figure(data=[go.Scatter(x=sp_time, y=spectral_energy_1),
-                     go.Scatter(x=sp_time, y=spectral_energy_2),
-                     go.Scatter(x=sp_time, y=spectral_energy_2 / spectral_energy_1),
-                     go.Scatter(x=sp_time, y=thres_sm)], layout=layout)
+    C = 0.5
+    spectral_ratio = (spectral_energy_1 + C) / (spectral_energy_2 + C)
+
+    fig2 = go.Figure(data=[go.Scatter(x=sp_time, y=spectral_energy_1,
+                                      name="Energy"),
+                     go.Scatter(x=sp_time, y=spectral_energy_2,
+                                name="Spectral Energy"),
+                     go.Scatter(x=sp_time, y=spectral_ratio,
+                                name="Spectral Ratio"),
+                     go.Scatter(x=sp_time, y=thres_sm, name="Threshold")],
+                     layout=layout)
     fig2.update_layout(shapes=shapes2 + shapes_gt2)
-    plotly.offline.plot(fig2, filename="temp2.html", auto_open=True)
+    plotly.offline.plot(fig2, filename="evaluation_2.html", auto_open=True)
 
     temporal_evaluation(segs_gt, segs, duration)
