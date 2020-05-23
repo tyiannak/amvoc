@@ -88,9 +88,11 @@ if __name__ == "__main__":
     spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
 
     thres = 1.2
-    segs, thres_sm = ap.get_syllables(spectral_energy_2, ST_STEP,
-                                      threshold_per=thres * 100,
-                                      min_duration=MIN_VOC_DUR)
+    segs, thres_sm, spectral_ratio = ap.get_syllables(spectral_energy_2,
+                                                      spectral_energy_1,
+                                                      ST_STEP,
+                                                      threshold_per=thres * 100,
+                                                      min_duration=MIN_VOC_DUR)
 
     segs_gt, f_gt = read_ground_truth(args.ground_truth_file)
 
@@ -126,9 +128,6 @@ if __name__ == "__main__":
     fig = go.Figure(data=[heatmap], layout=layout)
     fig.update_layout(shapes=shapes + shapes_gt)
     plotly.offline.plot(fig, filename="evaluation_1.html", auto_open=True)
-
-    C = 0.5
-    spectral_ratio = (spectral_energy_1 + C) / (spectral_energy_2 + C)
 
     fig2 = go.Figure(data=[go.Scatter(x=sp_time, y=spectral_energy_1,
                                       name="Energy"),

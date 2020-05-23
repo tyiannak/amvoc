@@ -57,9 +57,11 @@ def get_shapes(segments, freq1, freq2, max_t):
 
 def get_layout():
     thres = 1.1
-    seg_limits, thres_sm = ap.get_syllables(spectral_energy_2, ST_STEP,
-                                            threshold_per=thres * 100,
-                                            min_duration=MIN_VOC_DUR)
+    seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
+                                               spectral_energy_1,
+                                               ST_STEP,
+                                               threshold_per=thres * 100,
+                                               min_duration=MIN_VOC_DUR)
     shapes1, shapes2 = get_shapes(seg_limits, f_low, f_high,
                                   spectral_energy_1.max())
 
@@ -173,9 +175,10 @@ if __name__ == "__main__":
                   [Input('intermediate_val_thres', 'children')])
     def update_graph(val):
         # get vocalization syllables from thresholding of the feature sequence
-        seg_limits, sm = ap.get_syllables(spectral_energy_2, ST_STEP,
-                                          threshold_per=val*100,
-                                          min_duration=MIN_VOC_DUR)
+        seg_limits, sm, _ = ap.get_syllables(spectral_energy_2, spectral_energy_1,
+                                             ST_STEP,
+                                             threshold_per=val*100,
+                                             min_duration=MIN_VOC_DUR)
         syllables = [{"st": s[0], "et": s[1], "label": ""} for s in seg_limits]
 
         with open('annotations.json', 'w') as outfile:
