@@ -48,7 +48,7 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     The basic vocalization (syllable) detection method
     :param spectral_en: the input feature sequence (spectral energy)
     :param total_en: the secondary feature sequence
-           (i.e. the total spectral energy(
+           (i.e. the total spectral energy)
     :param win_step: window step (in msecs) used in feature extraction
     :param threshold_per: threshold parameter (percentage)
     :param min_duration: minimum vocalization duration
@@ -60,9 +60,9 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     global_mean = np.mean(spectral_en)
     filter_size = int(2 / win_step)
     smooth_filter = np.ones(filter_size) / filter_size
-    threshold = threshold_per * (0.2 * np.convolve(spectral_en,
+    threshold = threshold_per * (0.5 * np.convolve(spectral_en,
                                                    smooth_filter, mode="same") +
-                                 0.8 * global_mean) / 100.0
+                                 0.5 * global_mean) / 100.0
 
     # spectral energy ratio-related threshold
     C = 0.01
@@ -71,11 +71,9 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     spectral_ratio = (spectral_en + C) / (total_en + C)
     spectral_ratio = np.convolve(spectral_ratio, smooth_filter, mode="same")
 
-#    threshold2 =
-
     # Step 2: run the thresholding
     # (get the indices of the frames that satisfy the thresholding)
-    indices = np.where(spectral_en > threshold)[0]
+    indices = np.where((spectral_en > threshold) & (spectral_ratio > 0.6))[0]
 
     # Step 3: window indices to segment limits
     index, seg_limits, time_clusters = 0, [], []
