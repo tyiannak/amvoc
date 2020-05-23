@@ -38,7 +38,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def get_shapes(segments, freq1, freq2, max_t):
+def get_shapes(segments, freq1, freq2):
     # create rectangles to draw syllables
     shapes1, shapes2 = [], []
     for s in segments:
@@ -47,12 +47,7 @@ def get_shapes(segments, freq1, freq2, max_t):
             'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
             'fillcolor': 'rgba(128, 0, 128, 0.1)'}
         shapes1.append(s1)
-        s2 = {
-            'type': 'rect', 'x0': s[0], 'y0': 0, 'x1': s[1], 'y1': max_t,
-            'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 2},
-            'fillcolor': 'rgba(128, 0, 128, 0.4)'}
-        shapes2.append(s2)
-    return shapes1, shapes2
+    return shapes1
 
 
 def get_layout():
@@ -62,8 +57,8 @@ def get_layout():
                                                ST_STEP,
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
-    shapes1, shapes2 = get_shapes(seg_limits, f_low, f_high,
-                                  spectral_energy_1.max())
+    shapes1 = get_shapes(seg_limits, f_low, f_high)
+
 
     layout = html.Div(children=[
         html.H2(children='AMVOC', style={'textAlign': 'center',
@@ -113,19 +108,7 @@ def get_layout():
                         xaxis=dict(title='Time (Sec)'),
                         yaxis=dict(title='Freq (Hz)'),
                         shapes=shapes1)
-                }),
-            dcc.Graph(
-                id='energy',
-                figure={
-                    'data': [go.Scatter(x=sp_time, y=spectral_energy_1),
-                             go.Scatter(x=sp_time, y=spectral_energy_2),
-                             go.Scatter(x=sp_time, y=thres_sm)],
-                    'layout': go.Layout(
-                        xaxis=dict(title='Time (Sec)'),
-                        yaxis=dict(title='Energy'), showlegend=False,
-                        shapes=shapes2)
-                }
-            )]),
+                })]),
         # these are intermediate values to be used for sharing content
         # between callbacks
         # (see here https://dash.plotly.com/sharing-data-between-callbacks)
@@ -170,7 +153,6 @@ if __name__ == "__main__":
 
 
     @app.callback([Output('heatmap1', 'figure'),
-                   Output('energy', 'figure'),
                    Output('label_thres', 'children')],
                   [Input('intermediate_val_thres', 'children')])
     def update_graph(val):
@@ -184,8 +166,7 @@ if __name__ == "__main__":
         with open('annotations.json', 'w') as outfile:
             json.dump(syllables, outfile)
 
-        shapes1, shapes2 = get_shapes(seg_limits, f_low, f_high,
-                                      spectral_energy_1.max())
+        shapes1 = get_shapes(seg_limits, f_low, f_high)
 
         fig1 = {
             'data': [go.Heatmap(x=sp_time, y=sp_freq, z=spectrogram.T,
@@ -196,16 +177,7 @@ if __name__ == "__main__":
                 shapes=shapes1)
         }
 
-        fig2 = {
-            'data': [go.Scatter(x=sp_time, y=spectral_energy_1),
-                     go.Scatter(x=sp_time, y=spectral_energy_2),
-                     go.Scatter(x=sp_time, y=sm)],
-            'layout': go.Layout(
-                xaxis=dict(title='Time (Sec)'),
-                yaxis=dict(title='Energy'), showlegend=False,
-                shapes=shapes2)
-        }
-        return fig1, fig2, "Thres = {0:.2f}".format(val)
+        return fig1, "Thres = {0:.2f}".format(val)
 
 
     """
