@@ -47,7 +47,38 @@ def temporal_evaluation(s1, s2, duration):
     print(cm)
     precision = cm[1, 1] / (cm[1, 1] + cm[0, 1])
     recall = cm[1, 1] / (cm[1, 1] + cm[1, 0])
-    print(recall, precision)
+    f1 = 2 * recall * precision / (recall + precision)
+    return f1
+
+
+def event_evaluation(s1, s2):
+    used_1 = [0] * len(s1)
+    found_1 = [0] * len(s1)
+    used_2 = [0] * len(s2)
+    found_2 = [0] * len(s2)
+
+    for i in range(len(s1)):
+        for j in range(len(s2)):
+            if not used_2[j]:
+                if (s2[j][0] >= s1[i][0] and s2[j][0] <= s1[i][1]) or \
+                   (s2[j][1] >= s1[i][0] and s2[j][1] <= s1[i][1]) or \
+                   (s2[j][0] <  s1[i][0] and s2[j][1] > s1[i][1]):
+                    found_1[i] = 1
+                    used_2[j] = 1
+
+    for i in range(len(s2)):
+        for j in range(len(s1)):
+            if not used_1[j]:
+                if (s1[j][0] >= s2[i][0] and s1[j][0] <= s2[i][1]) or \
+                   (s1[j][1] >= s2[i][0] and s1[j][1] <= s2[i][1]) or \
+                   (s1[j][0] <  s2[i][0] and s1[j][1] > s2[i][1]):
+                    found_2[i] = 1
+                    used_1[j] = 1
+
+    correct1 = (sum(found_1) / len(found_1))
+    correct2 = (sum(found_2) / len(found_2))
+    harmonic_mean = 2 * correct1 * correct2 / (correct1 + correct2)
+    return harmonic_mean
 
 ST_WIN = 0.001   # short-term window
 ST_STEP = 0.002  # short-term step
@@ -140,4 +171,7 @@ if __name__ == "__main__":
     fig2.update_layout(shapes=shapes2 + shapes_gt2)
     plotly.offline.plot(fig2, filename="evaluation_2.html", auto_open=True)
 
-    temporal_evaluation(segs_gt, segs, duration)
+    accuracy_temporal = temporal_evaluation(segs_gt, segs, duration)
+    accuracy_event = event_evaluation(segs_gt, segs)
+
+    print(accuracy_temporal, accuracy_event)
