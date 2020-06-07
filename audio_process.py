@@ -75,7 +75,17 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     # (get the indices of the frames that satisfy the thresholding criteria:
     # (a) spectral energy is higher than the dynamic threshold and
     # (b) spectral ratio (spectral energy by total energy is > 0.6)
-    indices = np.where((spectral_en > threshold) & (spectral_ratio > 0.6))[0]
+    indices1 = ((spectral_en > threshold) & (spectral_ratio > 0.6))
+    indices1 = np.convolve(indices1, smooth_filter, mode="same")
+
+    indices = np.where(indices1)[0]
+    # smooth decisions:
+    indices_temp = []
+    for i, iv in enumerate(indices):
+        if ((iv + 1) in indices) or ((iv - 1)  in indices):
+            indices_temp.append(iv)
+    indices = indices_temp
+
 
     # Step 3: window indices to segment limits
     index, seg_limits, time_clusters = 0, [], []
