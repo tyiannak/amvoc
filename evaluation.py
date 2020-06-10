@@ -118,7 +118,7 @@ if __name__ == "__main__":
     spectral_energy_1 = spectrogram.sum(axis=1)
     spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
 
-    thres = 1.2
+    thres = 1.0
     segs, thres_sm, spectral_ratio = ap.get_syllables(spectral_energy_2,
                                                       spectral_energy_1,
                                                       ST_STEP,
@@ -174,4 +174,4 @@ if __name__ == "__main__":
     accuracy_temporal = temporal_evaluation(segs_gt, segs, duration)
     accuracy_event = event_evaluation(segs_gt, segs)
 
-    print(accuracy_temporal, accuracy_event)
+    print(thres, MIN_VOC_DUR, accuracy_temporal, accuracy_event)
