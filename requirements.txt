@@ -1,6 +1,6 @@
-dash_core_components==1.8.1
 numpy==1.18.1
+plotly==4.1.1
 dash_html_components==1.0.2
 dash==1.9.1
-plotly==4.1.1
-pyAudioAnalysis==0.3.0
+dash_core_components==1.8.1
+pyAudioAnalysis==0.3.4
