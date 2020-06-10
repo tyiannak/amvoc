@@ -21,7 +21,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
 ST_WIN = 0.001   # short-term window
-ST_STEP = 0.002  # short-term step
+ST_STEP = 0.001  # short-term step
 MIN_VOC_DUR = 0.005
 
 # The frequencies used for spectral energy calculation (Hz)
