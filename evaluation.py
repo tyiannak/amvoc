@@ -80,13 +80,22 @@ def event_evaluation(s1, s2):
     harmonic_mean = 2 * correct1 * correct2 / (correct1 + correct2)
     return harmonic_mean
 
-ST_WIN = 0.001   # short-term window
-ST_STEP = 0.002  # short-term step
 MIN_VOC_DUR = 0.005
 
 # The frequencies used for spectral energy calculation (Hz)
 F1 = 30000
 F2 = 100000
+
+
+def restricted_float_short_term_window(x):
+    try:
+        x = float(x)
+    except ValueError:
+        raise argparse.ArgumentTypeError("%r not a floating-point literal" % (x,))
+
+    if x < 0.0 or x > 1.0:
+        raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
+    return x
 
 
 def parse_arguments():
@@ -95,6 +104,12 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Amvoc")
     parser.add_argument("-i", "--input_file", required=True, nargs=None,
                         help="Audio file")
+    parser.add_argument("-w", "--win", type=restricted_float_short_term_window,
+                        help="Short-term window size (for spectrogram)",
+                        default=0.002)
+    parser.add_argument("-s", "--step", type=restricted_float_short_term_window,
+                        help="Short-term window step (for spectrogram)",
+                        default=0.002)
     parser.add_argument("-g", "--ground_truth_file", required=True, nargs=None,
                         help="Ground truth file")
     return parser.parse_args()
@@ -105,8 +120,8 @@ if __name__ == "__main__":
 
     # feature (spectrogram) extraction:
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
-                                                           ST_WIN, ST_STEP)
-    duration = spectrogram.shape[0] * ST_STEP
+                                                           args.win, args.step)
+    duration = spectrogram.shape[0] * args.step
 
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
@@ -121,7 +136,7 @@ if __name__ == "__main__":
     thres = 1.0
     segs, thres_sm, spectral_ratio = ap.get_syllables(spectral_energy_2,
                                                       spectral_energy_1,
-                                                      ST_STEP,
+                                                      args.step,
                                                       threshold_per=thres * 100,
                                                       min_duration=MIN_VOC_DUR)
 
