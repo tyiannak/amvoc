@@ -56,38 +56,45 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
       1) segment limits of detected syllables
       2) dynamic threshold sequence
     """
-    # Step 1: dynamic threshold computation (threshold is a sequence):
+    # Step 1: dynamic threshold computation (threshold is a sequence) for 
+    # spectral energy:
     global_mean = np.mean(spectral_en)
     filter_size = int(2 / win_step)
-    smooth_filter = np.ones(filter_size) / filter_size
+    moving_avg_filter = np.ones(filter_size) / filter_size
     threshold = threshold_per * (0.5 * np.convolve(spectral_en,
-                                                   smooth_filter, mode="same") +
+                                                   moving_avg_filter, 
+                                                   mode="same") +
                                  0.5 * global_mean) / 100.0
 
-    # spectral energy ratio-related threshold
+    # Step 2: spectral energy ratio computation:
     C = 0.01
-    filter_size = 5
-    smooth_filter = np.ones(filter_size) / filter_size
+    filter_size_smooth = int(0.02 / win_step)
+    smooth_filter = np.ones(filter_size_smooth) / filter_size_smooth
     spectral_ratio = (spectral_en + C) / (total_en + C)
     spectral_ratio = np.convolve(spectral_ratio, smooth_filter, mode="same")
 
-    # Step 2: run the thresholding
+    # Step 3: thresholding
     # (get the indices of the frames that satisfy the thresholding criteria:
     # (a) spectral energy is higher than the dynamic threshold and
-    # (b) spectral ratio (spectral energy by total energy is > 0.6)
-    indices1 = ((spectral_en > threshold) & (spectral_ratio > 0.6))
-    indices1 = np.convolve(indices1, smooth_filter, mode="same")
-
-    indices = np.where(indices1)[0]
+    # (b) spectral ratio (spectral energy by total energy is
+    #     larger than the mean spectral ratio)
+    mean_spectral_ratio = spectral_ratio.mean()
+    print('mean spectral ratio is ' + str(mean_spectral_ratio))
+    is_vocal = ((spectral_en > threshold) &
+                (spectral_ratio > mean_spectral_ratio))
+    
+    # Step 4: smooth 
+    is_vocal = np.convolve(is_vocal, smooth_filter, mode="same")
+    is_vocal = np.where(is_vocal)[0]
     # smooth decisions:
     indices_temp = []
-    for i, iv in enumerate(indices):
-        if ((iv + 1) in indices) or ((iv - 1)  in indices):
+    for i, iv in enumerate(is_vocal):
+        if ((iv + 1) in is_vocal) or ((iv - 1)  in is_vocal):
             indices_temp.append(iv)
     indices = indices_temp
 
 
-    # Step 3: window indices to segment limits
+    # Step 5: window indices to segment limits
     index, seg_limits, time_clusters = 0, [], []
 
     # group frame indices to onset segments
