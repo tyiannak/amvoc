@@ -121,8 +121,21 @@ def parse_arguments():
     parser.add_argument("-s", "--step", type=restricted_float_short_term_window,
                         help="Short-term window step (for spectrogram)",
                         default=0.002)
-    parser.add_argument("-t", "--threshold", type=restricted_float_threshold,
+    parser.add_argument("-t", "--threshold",
+                        type=restricted_float_threshold,
                         help="Threshold factor",
+                        default=1)
+    parser.add_argument("--resize_freq",
+                        choices=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                        type=int,
+                        help="Resize factor in the frequency domain " +
+                             "(for lighter visualization of the spectrogram)",
+                        default=1)
+    parser.add_argument("--resize_time",
+                        choices=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                        type=int,
+                        help="Resize factor in the time domain " +
+                             "(for lighter visualization of the spectrogram)",
                         default=1)
 
     parser.add_argument("-g", "--ground_truth_file", required=True, nargs=None,
@@ -134,6 +147,8 @@ if __name__ == "__main__":
     args = parse_arguments()
 
     thres = args.threshold
+    spec_resize_ratio_freq = args.resize_freq
+    spec_resize_ratio_time = args.resize_time
 
     # feature (spectrogram) extraction:
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
@@ -159,9 +174,6 @@ if __name__ == "__main__":
     segs_gt, f_gt = read_ground_truth(args.ground_truth_file)
 
     shapes, shapes2, shapes_gt, shapes_gt2 = [], [], [], []
-
-    spec_resize_ratio_freq = 2
-    spec_resize_ratio_time = 4
 
     for s in segs:
         s1 = {
