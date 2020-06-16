@@ -159,31 +159,53 @@ if __name__ == "__main__":
     segs_gt, f_gt = read_ground_truth(args.ground_truth_file)
 
     shapes, shapes2, shapes_gt, shapes_gt2 = [], [], [], []
+
+    spec_resize_ratio_freq = 2
+    spec_resize_ratio_time = 4
+
     for s in segs:
         s1 = {
-            'type': 'rect', 'x0': s[0], 'y0': f_low, 'x1': s[1], 'y1': f_high,
+            'type': 'rect',
+            'x0': s[0],
+            'y0': f_low,
+            'x1': s[1],
+            'y1': f_high,
             'line': {'color': 'rgba(50, 50, 128, 1)', 'width': 2},
             'fillcolor': 'rgba(50, 50, 128, 0.1)'}
         s2 = {
-            'type': 'rect', 'x0': s[0], 'y0': -0.05, 'x1': s[1], 'y1': 0.0,
+            'type': 'rect',
+            'x0': s[0],
+            'y0': -0.05,
+            'x1': s[1],
+            'y1': 0.0,
             'line': {'color': 'rgba(50, 50, 128, 1)', 'width': 2},
             'fillcolor': 'rgba(50, 50, 128, 0.1)'}
         shapes.append(s1)
         shapes2.append(s2)
     for s in segs_gt:
         s1 = {
-            'type': 'rect', 'x0': s[0], 'y0': f_low-1000, 'x1': s[1],
+            'type': 'rect',
+            'x0': s[0],
+            'y0': (f_low-1000),
+            'x1': s[1],
             'y1': f_low,
             'line': {'color': 'rgba(128, 50, 50, 1)', 'width': 2},
             'fillcolor': 'rgba(128, 50, 50, 0.4)'}
         s2 = {
-            'type': 'rect', 'x0': s[0], 'y0': -0.1, 'x1': s[1], 'y1': -0.05,
+            'type': 'rect',
+            'x0': s[0],
+            'y0': -0.1,
+            'x1': s[1],
+            'y1': -0.05,
             'line': {'color': 'rgba(128, 50, 50, 1)', 'width': 2},
             'fillcolor': 'rgba(128, 50, 50, 0.4)'}
 
         shapes_gt.append(s1)
         shapes_gt2.append(s2)
-    heatmap = go.Heatmap(z=spectrogram.T, y=sp_freq, x=sp_time,
+    heatmap = go.Heatmap(z=spectrogram[::spec_resize_ratio_time,
+                           ::spec_resize_ratio_freq].T,
+                         y=sp_freq[::spec_resize_ratio_freq],
+                         x=sp_time[::spec_resize_ratio_time],
                          colorscale='Jet')
     layout = go.Layout(title='Evaluation', xaxis=dict(title='time (sec)', ),
                        yaxis=dict(title='Freqs (Hz)'))
@@ -196,13 +218,18 @@ if __name__ == "__main__":
     plotly.offline.plot(fig, filename=out_file + "_spec.html",
                         auto_open=True)
 
-    fig2 = go.Figure(data=[go.Scatter(x=sp_time, y=spectral_energy_1,
+    fig2 = go.Figure(data=[go.Scatter(x=sp_time[::spec_resize_ratio_time],
+                                      y=spectral_energy_1[::spec_resize_ratio_time],
                                       name="Energy"),
-                     go.Scatter(x=sp_time, y=spectral_energy_2,
+                     go.Scatter(x=sp_time[::spec_resize_ratio_time],
+                                y=spectral_energy_2[::spec_resize_ratio_time],
                                 name="Spectral Energy"),
-                     go.Scatter(x=sp_time, y=spectral_ratio,
+                     go.Scatter(x=sp_time[::spec_resize_ratio_time],
+                                y=spectral_ratio[::spec_resize_ratio_time],
                                 name="Spectral Ratio"),
-                     go.Scatter(x=sp_time, y=thres_sm, name="Threshold")],
+                     go.Scatter(x=sp_time[::spec_resize_ratio_time],
+                                y=thres_sm[::spec_resize_ratio_time],
+                                name="Threshold")],
                      layout=layout)
     fig2.update_layout(shapes=shapes2 + shapes_gt2)
     plotly.offline.plot(fig2, filename=out_file + "_plots.html",
