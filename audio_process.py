@@ -11,7 +11,7 @@ from pyAudioAnalysis import ShortTermFeatures as sF
 import numpy as np
 import os
 
-def get_spectrogram(path, win, step):
+def get_spectrogram(path, win, step, disable_caching=True):
     """
     get_spectrogram() is a wrapper to
     pyAudioAnalysis.ShortTermFeatures.spectrogram() with a caching functionality
@@ -23,20 +23,21 @@ def get_spectrogram(path, win, step):
     """
     fs, s = io.read_audio_file(path)
     cache_name = path + "_{0:.6f}_{1:.6f}.npz".format(win, step)
-    if os.path.isfile(cache_name):
-        print("LOAD")
+    if not disable_caching and os.path.isfile(cache_name):
+        print("Loading cached spectrogram")
         npzfile = np.load(cache_name)
         spec_val = npzfile["arr_0"]
         spec_time = npzfile["arr_1"]
         spec_freq = npzfile["arr_2"]
     else:
-        print("COMPUTING SPECTROGRAM")
+        print("Computing spectrogram")
         spec_val, spec_time, spec_freq = sF.spectrogram(s, fs,
                                                         round(fs * win),
                                                         round(fs * step),
                                                         False, True)
-        np.savez(cache_name, spec_val, spec_time, spec_freq)
-        print("DONE")
+        if not disable_caching:
+            np.savez(cache_name, spec_val, spec_time, spec_freq)
+        print("Done")
     #    f, f_n  = sF.feature_extraction(s, fs, win * fs / 1000.0,
     #                                    step * fs / 1000.0, deltas=True)
     return spec_val, np.array(spec_time), np.array(spec_freq), fs
