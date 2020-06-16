@@ -91,10 +91,21 @@ def restricted_float_short_term_window(x):
     try:
         x = float(x)
     except ValueError:
-        raise argparse.ArgumentTypeError("%r not a floating-point literal" % (x,))
+        raise argparse.ArgumentTypeError("%r not a floating-point literal"
+                                         % (x,))
+    if x < 0.0001 or x > 0.1:
+        raise argparse.ArgumentTypeError("%r not in range [0.0001, 0.1]"%(x,))
+    return x
 
-    if x < 0.0 or x > 1.0:
-        raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
+
+def restricted_float_threshold(x):
+    try:
+        x = float(x)
+    except ValueError:
+        raise argparse.ArgumentTypeError("%r not a floating-point literal" %
+                                         (x,))
+    if x < 0.5 or x > 2.0:
+        raise argparse.ArgumentTypeError("%r not in range [0.5, 2.0]"%(x,))
     return x
 
 
@@ -110,6 +121,10 @@ def parse_arguments():
     parser.add_argument("-s", "--step", type=restricted_float_short_term_window,
                         help="Short-term window step (for spectrogram)",
                         default=0.002)
+    parser.add_argument("-t", "--threshold", type=restricted_float_threshold,
+                        help="Threshold factor",
+                        default=1)
+
     parser.add_argument("-g", "--ground_truth_file", required=True, nargs=None,
                         help="Ground truth file")
     return parser.parse_args()
@@ -117,6 +132,8 @@ def parse_arguments():
 
 if __name__ == "__main__":
     args = parse_arguments()
+
+    thres = args.threshold
 
     # feature (spectrogram) extraction:
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
@@ -133,7 +150,6 @@ if __name__ == "__main__":
     spectral_energy_1 = spectrogram.sum(axis=1)
     spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
 
-    thres = 1.0
     segs, thres_sm, spectral_ratio = ap.get_syllables(spectral_energy_2,
                                                       spectral_energy_1,
                                                       args.step,
@@ -156,7 +172,8 @@ if __name__ == "__main__":
         shapes2.append(s2)
     for s in segs_gt:
         s1 = {
-            'type': 'rect', 'x0': s[0], 'y0': f_low-1000, 'x1': s[1], 'y1': f_low,
+            'type': 'rect', 'x0': s[0], 'y0': f_low-1000, 'x1': s[1],
+            'y1': f_low,
             'line': {'color': 'rgba(128, 50, 50, 1)', 'width': 2},
             'fillcolor': 'rgba(128, 50, 50, 0.4)'}
         s2 = {
@@ -173,7 +190,11 @@ if __name__ == "__main__":
 
     fig = go.Figure(data=[heatmap], layout=layout)
     fig.update_layout(shapes=shapes + shapes_gt)
-    plotly.offline.plot(fig, filename="evaluation_1.html", auto_open=True)
+    out_file = args.input_file + "{0:.4f}_{1:.4f}_{2:.2f}".format(args.win,
+                                                                  args.step,
+                                                                  thres)
+    plotly.offline.plot(fig, filename=out_file + "_spec.html",
+                        auto_open=True)
 
     fig2 = go.Figure(data=[go.Scatter(x=sp_time, y=spectral_energy_1,
                                       name="Energy"),
@@ -184,7 +205,8 @@ if __name__ == "__main__":
                      go.Scatter(x=sp_time, y=thres_sm, name="Threshold")],
                      layout=layout)
     fig2.update_layout(shapes=shapes2 + shapes_gt2)
-    plotly.offline.plot(fig2, filename="evaluation_2.html", auto_open=True)
+    plotly.offline.plot(fig2, filename=out_file + "_plots.html",
+                        auto_open=True)
 
     accuracy_temporal = temporal_evaluation(segs_gt, segs, duration)
     accuracy_event = event_evaluation(segs_gt, segs)
