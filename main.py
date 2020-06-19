@@ -20,8 +20,10 @@ import json
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
-ST_WIN = 0.001   # short-term window
-ST_STEP = 0.001  # short-term step
+# These values are selected based on the evaluation.py script and the results
+# obtained from running these scripts on two long annotated recordings
+ST_WIN = 0.004   # short-term window
+ST_STEP = 0.004  # short-term step
 MIN_VOC_DUR = 0.005
 
 # The frequencies used for spectral energy calculation (Hz)
@@ -51,7 +53,10 @@ def get_shapes(segments, freq1, freq2):
 
 
 def get_layout():
-    thres = 1.1
+    # Also, default thres value is set to 1.2 (this is the optimal based on
+    # the same evaluation that led to the parameter set of the
+    # short-term window and step
+    thres = 1.2
     seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                spectral_energy_1,
                                                ST_STEP,
@@ -66,14 +71,14 @@ def get_layout():
 
         html.Div([
             html.Div([
-                html.Div(children='Thres = 0.4',
+                html.Div(children='Thres = 1.2',
                          style={'textAlign': 'center',
                                 'color': colors['text']},
                          id="label_thres"),
                 dcc.Slider(
-                    id="slider_thres", min=0.9, step=0.05, max=1.3,
-                    marks={i: str(i) for i in [0.9, 1.0, 1.1, 1.2, 1.3]},
-                    value=1.1)], className="two columns")
+                    id="slider_thres", min=1.1, step=0.05, max=1.5,
+                    marks={i: str(i) for i in [1.1, 1.2, 1.3, 1.4, 1.5]},
+                    value=1.2)], className="two columns")
             ]),
 
         html.Div([
@@ -228,12 +233,10 @@ if __name__ == "__main__":
     def update_annotations(dropdown_class, selected):
         with open('annotations.json') as json_file:
             syllables = json.load(json_file)
-        print(syllables, dropdown_class, selected)
         if dropdown_class and selected:
             syllables[int(selected)]["label"] = dropdown_class
             with open('annotations.json', 'w') as outfile:
                 json.dump(syllables, outfile)
-
         return "{}"
 
 
