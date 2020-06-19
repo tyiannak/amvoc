@@ -57,6 +57,11 @@ def get_layout():
     # the same evaluation that led to the parameter set of the
     # short-term window and step
     thres = 1.2
+
+    # These should change depending on the signal's size
+    spec_resize_ratio_freq = 2
+    spec_resize_ratio_time = 4
+
     seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                spectral_energy_1,
                                                ST_STEP,
@@ -106,7 +111,10 @@ def get_layout():
             dcc.Graph(
                 id='heatmap1',
                 figure={
-                    'data': [go.Heatmap(x=sp_time, y=sp_freq, z=spectrogram.T,
+                    'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
+                                        y=sp_freq[::spec_resize_ratio_freq],
+                                        z=spectrogram[::spec_resize_ratio_time,
+                                          ::spec_resize_ratio_freq].T,
                                         name='F', colorscale='Jet',
                                         showscale=False)],
                     'layout': go.Layout(
@@ -134,11 +142,6 @@ if __name__ == "__main__":
                                                            ST_WIN, ST_STEP)
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
-
-    #    spectrogram = spectrogram[0::5, 0::5]
-    #    spectrogram_time = spectrogram_time[0::5]
-    #    spectrogram_freq = spectrogram_freq[0::5]
-    #    st_step = ST_STEP / 5
 
     # define feature sequence for vocalization detection
     f1 = np.argmin(np.abs(sp_freq - f_low))
