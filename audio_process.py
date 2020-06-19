@@ -84,14 +84,7 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     
     # Step 4: smooth 
     is_vocal = np.convolve(is_vocal, smooth_filter, mode="same")
-    is_vocal = np.where(is_vocal)[0]
-    # smooth decisions:
-    indices_temp = []
-    for i, iv in enumerate(is_vocal):
-        if ((iv + 1) in is_vocal) or ((iv - 1)  in is_vocal):
-            indices_temp.append(iv)
-    indices = indices_temp
-
+    indices = np.where(is_vocal)[0]
 
     # Step 5: window indices to segment limits
     index, seg_limits, time_clusters = 0, [], []
