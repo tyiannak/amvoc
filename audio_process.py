@@ -37,7 +37,6 @@ def get_spectrogram(path, win, step, disable_caching=True):
                                                         False, True)
         if not disable_caching:
             np.savez(cache_name, spec_val, spec_time, spec_freq)
-        print("Done")
     #    f, f_n  = sF.feature_extraction(s, fs, win * fs / 1000.0,
     #                                    step * fs / 1000.0, deltas=True)
     return spec_val, np.array(spec_time), np.array(spec_freq), fs
@@ -80,7 +79,6 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     # (b) spectral ratio (spectral energy by total energy is
     #     larger than the mean spectral ratio)
     mean_spectral_ratio = spectral_ratio.mean()
-    print('mean spectral ratio is ' + str(mean_spectral_ratio))
     is_vocal = ((spectral_en > threshold) &
                 (spectral_ratio > mean_spectral_ratio))
     
