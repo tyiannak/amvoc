@@ -22,8 +22,8 @@ colors = {'background': '#111111', 'text': '#7FDBFF'}
 
 # These values are selected based on the evaluation.py script and the results
 # obtained from running these scripts on two long annotated recordings
-ST_WIN = 0.004   # short-term window
-ST_STEP = 0.004  # short-term step
+ST_WIN = 0.002   # short-term window
+ST_STEP = 0.002  # short-term step
 MIN_VOC_DUR = 0.005
 
 # The frequencies used for spectral energy calculation (Hz)
@@ -53,10 +53,10 @@ def get_shapes(segments, freq1, freq2):
 
 
 def get_layout():
-    # Also, default thres value is set to 1.2 (this is the optimal based on
+    # Also, default thres value is set to 1.3 (this is the optimal based on
     # the same evaluation that led to the parameter set of the
     # short-term window and step
-    thres = 1.2
+    thres = 1.3
 
     # These should change depending on the signal's size
     spec_resize_ratio_freq = 2
@@ -76,14 +76,14 @@ def get_layout():
 
         html.Div([
             html.Div([
-                html.Div(children='Thres = 1.2',
+                html.Div(children='Thres = 1.3',
                          style={'textAlign': 'center',
                                 'color': colors['text']},
                          id="label_thres"),
                 dcc.Slider(
                     id="slider_thres", min=1.1, step=0.05, max=1.5,
                     marks={i: str(i) for i in [1.1, 1.2, 1.3, 1.4, 1.5]},
-                    value=1.2)], className="two columns")
+                    value=1.3)], className="two columns")
             ]),
 
         html.Div([
