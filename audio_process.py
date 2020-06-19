@@ -89,7 +89,6 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     # Step 5: window indices to segment limits
     index, seg_limits, time_clusters = 0, [], []
 
-    # group frame indices to onset segments
     while index < len(indices):
         # for each of the detected onset indices
         cur_cluster = [indices[index]]
@@ -105,7 +104,7 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
         seg_limits.append([cur_cluster[0] * win_step - win_step,
                            cur_cluster[-1] * win_step + win_step])
 
-    # Step 4: post process (remove very small segments)
+    # Step 6: post process (remove very small segments)
     seg_limits_2 = []
     for s_lim in seg_limits:
         if s_lim[1] - s_lim[0] > min_duration:
