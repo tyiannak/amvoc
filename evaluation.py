@@ -16,7 +16,6 @@ def read_ground_truth(filename, offset=0):
       - seg_end:    a np array of segments' ending positions
     """
     extension = (os.path.splitext(filename)[1])
-    print(extension)
     if extension==".mupet":
         with open(filename, 'rt') as f_handle:
             reader = csv.reader(f_handle, delimiter=',')
@@ -40,8 +39,6 @@ def read_ground_truth(filename, offset=0):
                         segs.append([float(row[14]) - offset,
                                      float(row[15]) - offset])
                         labels.append((row[1]))
-    print(segs)
-    print(labels)
 
     return segs, labels
 
