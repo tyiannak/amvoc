@@ -5,6 +5,7 @@ import plotly
 import plotly.graph_objs as go
 import audio_process as ap
 import csv
+import os
 
 
 def read_ground_truth(filename, offset=0):
@@ -14,16 +15,34 @@ def read_ground_truth(filename, offset=0):
       - seg_start:  a np array of segments' start positions
       - seg_end:    a np array of segments' ending positions
     """
-    with open(filename, 'rt') as f_handle:
-        reader = csv.reader(f_handle, delimiter=',')
-        segs = []
-        labels = []
-        for ir, row in enumerate(reader):
-            if ir > 0:
-                if len(row) == 6:
-                    segs.append([float(row[3]) - offset,
-                                 float(row[4]) - offset])
-                    labels.append(int(row[5]))
+    extension = (os.path.splitext(filename)[1])
+    print(extension)
+    if extension==".mupet":
+        with open(filename, 'rt') as f_handle:
+            reader = csv.reader(f_handle, delimiter=',')
+            segs = []
+            labels = []
+            for ir, row in enumerate(reader):
+                if ir > 0:
+                    if len(row) == 6:
+                        segs.append([float(row[3]) - offset,
+                                     float(row[4]) - offset])
+                        labels.append(int(row[5]))
+    elif extension==".msa":
+        print("msa")
+        with open(filename, 'rt') as f_handle:
+            reader = csv.reader(f_handle, delimiter=',')
+            segs = []
+            labels = []
+            for ir, row in enumerate(reader):
+                if ir > 0:
+                    if len(row) == 16:
+                        segs.append([float(row[14]) - offset,
+                                     float(row[15]) - offset])
+                        labels.append((row[1]))
+    print(segs)
+    print(labels)
+
     return segs, labels
 
 
