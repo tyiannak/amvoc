@@ -7,6 +7,11 @@ import audio_process as ap
 import csv
 import os
 
+# Global params
+MIN_VOC_DUR = 0.005
+# The frequencies used for spectral energy calculation (Hz)
+F1 = 30000
+F2 = 100000
 
 def read_ground_truth(filename, offset=0):
     """
@@ -28,7 +33,6 @@ def read_ground_truth(filename, offset=0):
                                      float(row[4]) - offset])
                         labels.append(int(row[5]))
     elif extension==".msa":
-        print("msa")
         with open(filename, 'rt') as f_handle:
             reader = csv.reader(f_handle, delimiter=',')
             segs = []
@@ -39,11 +43,17 @@ def read_ground_truth(filename, offset=0):
                         segs.append([float(row[14]) - offset,
                                      float(row[15]) - offset])
                         labels.append((row[1]))
-
     return segs, labels
 
 
 def temporal_evaluation(s1, s2, duration):
+    """
+    Temporal evaluation of agreement between sequences s1 and s2
+    :param s1: sequence of decisions s1
+    :param s2: sequence of decisions s2
+    :param duration: duration of each sequence element (in seconds)
+    :return: f1 metric of the 2nd class
+    """
     time_resolution = 0.001
     t = 0
     cm = np.zeros((2, 2))
@@ -68,6 +78,12 @@ def temporal_evaluation(s1, s2, duration):
 
 
 def event_evaluation(s1, s2):
+    """
+    Event-level evaluation of agreement between sequences s1 and s2
+    :param s1: sequence of decisions s1
+    :param s2: sequence of decisions s2
+    :return: event-level f1 metric
+    """
     used_1 = [0] * len(s1)
     found_1 = [0] * len(s1)
     used_2 = [0] * len(s2)
@@ -95,12 +111,6 @@ def event_evaluation(s1, s2):
     correct2 = (sum(found_2) / len(found_2))
     harmonic_mean = 2 * correct1 * correct2 / (correct1 + correct2)
     return harmonic_mean
-
-MIN_VOC_DUR = 0.005
-
-# The frequencies used for spectral energy calculation (Hz)
-F1 = 30000
-F2 = 100000
 
 
 def restricted_float_short_term_window(x):
