@@ -208,8 +208,8 @@ if __name__ == "__main__":
             'y0': f_low,
             'x1': s[1],
             'y1': f_high,
-            'line': {'color': 'rgba(50, 50, 128, 1)', 'width': 2},
-            'fillcolor': 'rgba(50, 50, 128, 0.1)'}
+            'line': {'color': 'rgba(50, 50, 255, 1)', 'width': 2},
+            'fillcolor': 'rgba(50, 50, 255, 0.1)'}
         s2 = {
             'type': 'rect',
             'x0': s[0],
