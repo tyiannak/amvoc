@@ -10,8 +10,10 @@ from pyAudioAnalysis import audioBasicIO as io
 from pyAudioAnalysis import ShortTermFeatures as sF
 import numpy as np
 import os
+from scipy import ndimage
 
-def get_spectrogram(path, win, step, disable_caching=True):
+
+def get_spectrogram(path, win, step, disable_caching=True, smooth=True):
     """
     get_spectrogram() is a wrapper to
     pyAudioAnalysis.ShortTermFeatures.spectrogram() with a caching functionality
@@ -39,6 +41,9 @@ def get_spectrogram(path, win, step, disable_caching=True):
             np.savez(cache_name, spec_val, spec_time, spec_freq)
     #    f, f_n  = sF.feature_extraction(s, fs, win * fs / 1000.0,
     #                                    step * fs / 1000.0, deltas=True)
+    if smooth:
+        spec_val = ndimage.median_filter(spec_val, (2, 3))
+
     return spec_val, np.array(spec_time), np.array(spec_freq), fs
 
 
