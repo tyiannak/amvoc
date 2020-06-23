@@ -15,6 +15,7 @@ import numpy as np
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output, State
 import audio_process as ap
+import audio_recognize as ar
 import json
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -67,6 +68,10 @@ def get_layout():
                                                ST_STEP,
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
+
+    clusters = ar.cluster_syllables(seg_limits, spectrogram,
+                                    sp_freq, f_low, f_high, ST_STEP)
+
     shapes1 = get_shapes(seg_limits, f_low, f_high)
 
 
@@ -149,7 +154,6 @@ if __name__ == "__main__":
 
     spectral_energy_1 = spectrogram.sum(axis=1)
     spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
-
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
     app.layout = get_layout()
 
@@ -169,8 +173,12 @@ if __name__ == "__main__":
                                              ST_STEP,
                                              threshold_per=val*100,
                                              min_duration=MIN_VOC_DUR)
-        syllables = [{"st": s[0], "et": s[1], "label": ""} for s in seg_limits]
+        clusters = ar.cluster_syllables(seg_limits, spectrogram,
+                                        sp_freq, f_low, f_high, ST_STEP)
 
+        class_names = ["c1", "c2", "c3", "c4"]
+        syllables = [{"st": s[0], "et": s[1], "label": class_names[clusters[iS]]}
+                     for iS, s in enumerate(seg_limits)]
         with open('annotations.json', 'w') as outfile:
             json.dump(syllables, outfile)
 
