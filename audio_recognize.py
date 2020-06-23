@@ -9,6 +9,7 @@ Maintainer: Theodoros Giannakopoulos {tyiannak@gmail.com}
 
 import numpy as np
 from sklearn.cluster import KMeans
+import cv2
 
 
 def blockshaped(arr):
@@ -29,11 +30,13 @@ def cluster_syllables(syllables, specgram, sp_freq,
 
     f1 = np.argmin(np.abs(sp_freq - f_low))
     f2 = np.argmin(np.abs(sp_freq - f_high))
+    images = []
 
     for syl in syllables:
         start = int(syl[0] / win)
         end = int(syl[1] / win)
         cur_image = specgram[start:end, f1:f2]
+        images.append(cur_image)
         print(cur_image.shape)
         cur_blocks = blockshaped(cur_image)
         duration = end - start
@@ -46,6 +49,10 @@ def cluster_syllables(syllables, specgram, sp_freq,
     kmeans = KMeans(n_clusters=4)
     kmeans.fit(features)
     y_kmeans = kmeans.predict(features)
-    print(y_kmeans)
+
+    for i in range(len(images)):
+        cv2.imwrite("im_{0:f}_{1:d}.jpeg".format(i,
+                                                 int(y_kmeans[i])),
+                    255 * (images[i] /  np.max(images[i])))
 
     return y_kmeans
