@@ -40,8 +40,8 @@ def read_ground_truth(filename, offset=0):
             for ir, row in enumerate(reader):
                 if ir > 0:
                     if len(row) == 16:
-                        segs.append([float(row[14]) - offset,
-                                     float(row[15]) - offset])
+                        segs.append([float(row[14]) - 0.06,
+                                     float(row[15]) - 0.06])
                         labels.append((row[1]))
     return segs, labels
 
