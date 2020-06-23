@@ -11,7 +11,20 @@ import numpy as np
 from sklearn.cluster import KMeans
 
 
-def cluster_syllables(syllables, specgram, sp_freq, f_low, f_high, win):
+def blockshaped(arr):
+    blocks = []
+    blocks.append(arr[0:int(arr.shape[0]/2), 0:int(arr.shape[1]/2)])
+    blocks.append(arr[0:int(arr.shape[0]/2), int(arr.shape[1]/2):])
+    blocks.append(arr[int(arr.shape[0]/2):, 0:int(arr.shape[1]/2)])
+    blocks.append(arr[int(arr.shape[0]/2):, int(arr.shape[1]/2):])
+    for b in blocks:
+        print(b.shape)
+    return blocks
+
+
+
+def cluster_syllables(syllables, specgram, sp_freq,
+                      f_low, f_high, win):
     features = []
 
     f1 = np.argmin(np.abs(sp_freq - f_low))
@@ -21,10 +34,14 @@ def cluster_syllables(syllables, specgram, sp_freq, f_low, f_high, win):
         start = int(syl[0] / win)
         end = int(syl[1] / win)
         cur_image = specgram[start:end, f1:f2]
-        mean = np.mean(cur_image)
-        std = np.std(cur_image)
+        print(cur_image.shape)
+        cur_blocks = blockshaped(cur_image)
         duration = end - start
-        features.append([duration * win, mean, std])
+        cur_features = [duration]
+        for b in cur_blocks:
+            cur_features.append(np.mean(b))
+            cur_features.append(np.std(b))
+        features.append(cur_features)
     features = np.array(features)
     kmeans = KMeans(n_clusters=4)
     kmeans.fit(features)
