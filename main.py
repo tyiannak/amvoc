@@ -31,6 +31,11 @@ MIN_VOC_DUR = 0.005
 F1 = 30000
 F2 = 100000
 
+# Also, default thres value is set to 1.3 (this is the optimal based on
+# the same evaluation that led to the parameter set of the
+# short-term window and step
+thres = 1.3
+
 
 def parse_arguments():
     """Parse arguments for real time demo.
@@ -54,10 +59,6 @@ def get_shapes(segments, freq1, freq2):
 
 
 def get_layout():
-    # Also, default thres value is set to 1.3 (this is the optimal based on
-    # the same evaluation that led to the parameter set of the
-    # short-term window and step
-    thres = 1.3
 
     seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                spectral_energy_1,
@@ -70,19 +71,6 @@ def get_layout():
     layout = html.Div(children=[
         html.H2(children='AMVOC', style={'textAlign': 'center',
                                          'color': colors['text']}),
-
-        html.Div([
-            html.Div([
-                html.Div(children='Thres = 1.3',
-                         style={'textAlign': 'center',
-                                'color': colors['text']},
-                         id="label_thres"),
-                dcc.Slider(
-                    id="slider_thres", min=1.1, step=0.05, max=1.5,
-                    marks={i: str(i) for i in [1.1, 1.2, 1.3, 1.4, 1.5]},
-                    value=1.3)], className="two columns")
-            ]),
-
         html.Div([
             html.Div([
                 html.Label(id="label_sel_start", children="Selected start",
@@ -122,7 +110,6 @@ def get_layout():
         # these are intermediate values to be used for sharing content
         # between callbacks
         # (see here https://dash.plotly.com/sharing-data-between-callbacks)
-        html.Div(id='intermediate_val_thres', style={'display': 'none'}),
         html.Div(id='intermediate_val_syllables', style={'display': 'none'}),
         html.Div(id='intermediate_val_selected_syllable',
                  style={'display': 'none'})
@@ -139,8 +126,8 @@ if __name__ == "__main__":
                                                            ST_WIN, ST_STEP)
 
     # These should change depending on the signal's size
-    spec_resize_ratio_freq = 2
-    spec_resize_ratio_time = 4
+    spec_resize_ratio_freq = 1
+    spec_resize_ratio_time = 1
 
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
@@ -152,53 +139,8 @@ if __name__ == "__main__":
     spectral_energy_1 = spectrogram.sum(axis=1)
     spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
     clean_spectrogram = ap.clean_spectrogram(spectrogram)
-
     app.layout = get_layout()
-
-
-
-    @app.callback(
-        Output('intermediate_val_thres', component_property='children'),
-        [Input('slider_thres', 'value')])
-    def update_thres(val):
-        return val
-
-
-    @app.callback([Output('heatmap1', 'figure'),
-                   Output('label_thres', 'children')],
-                  [Input('intermediate_val_thres', 'children')])
-    def update_graph(val):
-        # get vocalization syllables from thresholding of the feature sequence
-        seg_limits, sm, _ = ap.get_syllables(spectral_energy_2, spectral_energy_1,
-                                             ST_STEP,
-                                             threshold_per=val*100,
-                                             min_duration=MIN_VOC_DUR)
-        clusters = ar.cluster_syllables(seg_limits, spectrogram,
-                                        sp_freq, f_low, f_high, ST_STEP)
-
-        class_names = ["c1", "c2", "c3", "c4"]
-        syllables = [{"st": s[0], "et": s[1], "label": class_names[clusters[iS]]}
-                     for iS, s in enumerate(seg_limits)]
-        with open('annotations.json', 'w') as outfile:
-            json.dump(syllables, outfile)
-
-        shapes1 = get_shapes(seg_limits, f_low, f_high)
-
-        fig1 = {
-            'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
-                                y=sp_freq[::spec_resize_ratio_freq],
-                                z=clean_spectrogram[::spec_resize_ratio_time,
-                                               ::spec_resize_ratio_freq].T,
-                                  name='F', colorscale='Jet',
-                                  showscale=False)],
-            'layout': go.Layout(
-                xaxis=dict(title='Time (Sec)'), yaxis=dict(title='Freq (Hz)'),
-                shapes=shapes1)
-        }
-
-        return fig1, "Thres = {0:.2f}".format(val)
 
 
     """
@@ -241,7 +183,6 @@ if __name__ == "__main__":
                "{0:d}".format(i_s), syllable_label
 
 
-
     @app.callback(
         Output('intermediate_val_syllables', 'children'),
         [Input('dropdown_class', 'value'),
@@ -253,7 +194,6 @@ if __name__ == "__main__":
             syllables[int(selected)]["label"] = dropdown_class
             with open('annotations.json', 'w') as outfile:
                 json.dump(syllables, outfile)
-        return "{}"
-
+        return ""
 
     app.run_server(debug=True)
