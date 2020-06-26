@@ -47,6 +47,19 @@ def get_spectrogram(path, win, step, disable_caching=True, smooth=True):
     return spec_val, np.array(spec_time), np.array(spec_freq), fs
 
 
+def clean_spectrogram(spectrogram):
+    """
+    returns a normalized spectrogram where peaks are more clear
+    (for visualization purposes)
+    :param spectrogram:
+    :return:
+    """
+    new_spectrogram = np.copy(spectrogram)
+    for i in range(new_spectrogram.shape[0]):
+        new_spectrogram[i, :] /= sum(new_spectrogram[i, :])
+    return new_spectrogram
+
+
 def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
                   min_duration=0.02):
     """

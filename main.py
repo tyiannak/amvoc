@@ -59,24 +59,13 @@ def get_layout():
     # short-term window and step
     thres = 1.3
 
-    # These should change depending on the signal's size
-    spec_resize_ratio_freq = 2
-    spec_resize_ratio_time = 4
-
     seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                spectral_energy_1,
                                                ST_STEP,
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
 
-    clusters = ar.cluster_syllables(seg_limits, spectrogram,
-                                    sp_freq, f_low, f_high, ST_STEP)
-
     shapes1 = get_shapes(seg_limits, f_low, f_high)
-    spectrogram_to_plot = np.copy(spectrogram)
-    print(spectrogram_to_plot.shape)
-    for i in range(spectrogram_to_plot.shape[0]):
-        spectrogram_to_plot[i, :] /= sum(spectrogram_to_plot[i, :])
 
     layout = html.Div(children=[
         html.H2(children='AMVOC', style={'textAlign': 'center',
@@ -121,7 +110,7 @@ def get_layout():
                 figure={
                     'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
                                         y=sp_freq[::spec_resize_ratio_freq],
-                                        z=spectrogram_to_plot[::spec_resize_ratio_time,
+                                        z=clean_spectrogram[::spec_resize_ratio_time,
                                           ::spec_resize_ratio_freq].T,
                                         name='F', colorscale='Jet',
                                         showscale=False)],
@@ -148,6 +137,11 @@ if __name__ == "__main__":
     # feature (spectrogram) extraction:
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
                                                            ST_WIN, ST_STEP)
+
+    # These should change depending on the signal's size
+    spec_resize_ratio_freq = 2
+    spec_resize_ratio_time = 4
+
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
 
@@ -158,7 +152,12 @@ if __name__ == "__main__":
     spectral_energy_1 = spectrogram.sum(axis=1)
     spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+
+    clean_spectrogram = ap.clean_spectrogram(spectrogram)
+
     app.layout = get_layout()
+
+
 
     @app.callback(
         Output('intermediate_val_thres', component_property='children'),
@@ -188,9 +187,12 @@ if __name__ == "__main__":
         shapes1 = get_shapes(seg_limits, f_low, f_high)
 
         fig1 = {
-            'data': [go.Heatmap(x=sp_time, y=sp_freq, z=spectrogram.T,
-                                name='F', colorscale='Jet',
-                                showscale=False)],
+            'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
+                                y=sp_freq[::spec_resize_ratio_freq],
+                                z=clean_spectrogram[::spec_resize_ratio_time,
+                                               ::spec_resize_ratio_freq].T,
+                                  name='F', colorscale='Jet',
+                                  showscale=False)],
             'layout': go.Layout(
                 xaxis=dict(title='Time (Sec)'), yaxis=dict(title='Freq (Hz)'),
                 shapes=shapes1)

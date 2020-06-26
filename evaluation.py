@@ -240,7 +240,8 @@ if __name__ == "__main__":
 
         shapes_gt.append(s1)
         shapes_gt2.append(s2)
-    heatmap = go.Heatmap(z=spectrogram[::spec_resize_ratio_time,
+    clean_spectrogram = ap.clean_spectrogram(spectrogram)
+    heatmap = go.Heatmap(z=clean_spectrogram[::spec_resize_ratio_time,
                            ::spec_resize_ratio_freq].T,
                          y=sp_freq[::spec_resize_ratio_freq],
                          x=sp_time[::spec_resize_ratio_time],
