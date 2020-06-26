@@ -23,8 +23,8 @@ colors = {'background': '#111111', 'text': '#7FDBFF'}
 
 # These values are selected based on the evaluation.py script and the results
 # obtained from running these scripts on two long annotated recordings
-ST_WIN = 0.002   # short-term window
-ST_STEP = 0.002  # short-term step
+ST_WIN = 0.002    # short-term window
+ST_STEP = 0.002   # short-term step
 MIN_VOC_DUR = 0.005
 
 # The frequencies used for spectral energy calculation (Hz)
@@ -73,7 +73,10 @@ def get_layout():
                                     sp_freq, f_low, f_high, ST_STEP)
 
     shapes1 = get_shapes(seg_limits, f_low, f_high)
-
+    spectrogram_to_plot = np.copy(spectrogram)
+    print(spectrogram_to_plot.shape)
+    for i in range(spectrogram_to_plot.shape[0]):
+        spectrogram_to_plot[i, :] /= sum(spectrogram_to_plot[i, :])
 
     layout = html.Div(children=[
         html.H2(children='AMVOC', style={'textAlign': 'center',
@@ -118,7 +121,7 @@ def get_layout():
                 figure={
                     'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
                                         y=sp_freq[::spec_resize_ratio_freq],
-                                        z=spectrogram[::spec_resize_ratio_time,
+                                        z=spectrogram_to_plot[::spec_resize_ratio_time,
                                           ::spec_resize_ratio_freq].T,
                                         name='F', colorscale='Jet',
                                         showscale=False)],
