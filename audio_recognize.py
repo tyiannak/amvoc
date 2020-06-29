@@ -9,19 +9,6 @@ Maintainer: Theodoros Giannakopoulos {tyiannak@gmail.com}
 
 import numpy as np
 from sklearn.cluster import KMeans
-import cv2
-import matplotlib.pyplot as plt
-
-
-def blockshaped(arr):
-    blocks = []
-    blocks.append(arr[0:int(arr.shape[0]/2), 0:int(arr.shape[1]/2)])
-    blocks.append(arr[0:int(arr.shape[0]/2), int(arr.shape[1]/2):])
-    blocks.append(arr[int(arr.shape[0]/2):, 0:int(arr.shape[1]/2)])
-    blocks.append(arr[int(arr.shape[0]/2):, int(arr.shape[1]/2):])
-    return blocks
-
-from scipy.interpolate import interp1d
 from sklearn.svm import SVR
 
 def cluster_syllables(syllables, specgram, sp_freq,
@@ -70,25 +57,11 @@ def cluster_syllables(syllables, specgram, sp_freq,
                                 np.array(interpoints_y))
         x_new = list(range(min(interpoints_x), max(interpoints_x)+1))
         y_new = svr_poly.predict(np.array(x_new).reshape(-1, 1))
-        """
-        plt.subplot(2,1,1)
-        plt.plot(x_new, y_new)
-        plt.plot(interpoints_x, interpoints_y, 'r*')
-        plt.subplot(2,1,2)
-        plt.imshow(cur_image.T, origin='lower')
-        plt.plot(x_new, y_new, 'r*')
-        plt.show()
-        images.append(cur_image)   
-        """
         points_t = [j * win + syl[0] for j in x_new]
         points_f = [sp_freq[int(j + f1)] for j in y_new]
         countour_points.append([points_t, points_f])
-        cur_blocks = blockshaped(cur_image)
         duration = end - start
         cur_features = [duration]
-        for b in cur_blocks:
-            cur_features.append(np.mean(b))
-            cur_features.append(np.std(b))
         features.append(cur_features)
     features = np.array(features)
     kmeans = KMeans(n_clusters=4)
