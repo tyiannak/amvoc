@@ -48,7 +48,7 @@ def parse_arguments():
 
 def get_shapes(segments, freq1, freq2):
     # create rectangles to draw syllables
-    shapes1, shapes2 = [], []
+    shapes1 = []
     for s in segments:
         s1 = {
             'type': 'rect', 'x0': s[0], 'y0': freq1, 'x1': s[1], 'y1': freq2,
@@ -59,12 +59,37 @@ def get_shapes(segments, freq1, freq2):
 
 
 def get_layout():
-
     seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                spectral_energy_1,
                                                ST_STEP,
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
+
+    clusters, points = ar.cluster_syllables(seg_limits, spectrogram, sp_freq,
+                                            f_low, f_high, ST_STEP)
+    points_all_x = []
+    points_all_y = []
+    for iS in range(len(seg_limits)):
+        points_all_x += points[iS][0]
+        points_all_y += points[iS][1]
+
+    shapes2 = []
+    for (x, y) in zip(points_all_x, points_all_y):
+        print(x, y)
+        s1 = {
+            'type': 'rect', 'x0': x - ST_STEP / 5,
+            'y0': y - 1000,
+            'x1': x + ST_STEP / 5,
+            'y1': y + 1000,
+            'line': {'color': 'rgba(128, 0, 0, 1)', 'width': 1},
+            'fillcolor': 'rgba(128, 0, 0, 1)'}
+        shapes2.append(s1)
+
+    class_names = ["c1", "c2", "c3", "c4"]
+    syllables = [{"st": s[0], "et": s[1], "label": class_names[clusters[iS]]}
+                 for iS, s in enumerate(seg_limits)]
+    with open('annotations.json', 'w') as outfile:
+        json.dump(syllables, outfile)
 
     shapes1 = get_shapes(seg_limits, f_low, f_high)
 
@@ -105,7 +130,7 @@ def get_layout():
                     'layout': go.Layout(
                         xaxis=dict(title='Time (Sec)'),
                         yaxis=dict(title='Freq (Hz)'),
-                        shapes=shapes1)
+                        shapes=shapes1 + shapes2)
                 })]),
         # these are intermediate values to be used for sharing content
         # between callbacks
