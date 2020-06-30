@@ -65,8 +65,9 @@ def get_layout():
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
 
-    clusters, points = ar.cluster_syllables(seg_limits, spectrogram, sp_freq,
-                                            f_low, f_high, ST_STEP)
+    clusters, points, features = ar.cluster_syllables(seg_limits, spectrogram,
+                                                      sp_freq,
+                                                      f_low, f_high, ST_STEP)
     points_all_x = []
     points_all_y = []
     for iS in range(len(seg_limits)):

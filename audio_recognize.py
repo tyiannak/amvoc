@@ -61,17 +61,13 @@ def cluster_syllables(syllables, specgram, sp_freq,
         points_f = [sp_freq[int(j + f1)] for j in y_new]
         countour_points.append([points_t, points_f])
         duration = end - start
-        cur_features = [duration]
+        cur_features = [duration,
+                        np.max(points_f) - np.min(points_f),
+                        points_f[0] - points_f[-1]]
         features.append(cur_features)
     features = np.array(features)
     kmeans = KMeans(n_clusters=4)
     kmeans.fit(features)
     y_kmeans = kmeans.predict(features)
 
-    """
-    for i in range(len(images)):
-        cv2.imwrite("im_{0:f}_{1:d}.jpeg".format(i,
-                                                 int(y_kmeans[i])),
-                    255 * (images[i] /  np.max(images[i])))
-    """
-    return y_kmeans, countour_points
+    return y_kmeans, countour_points, features
