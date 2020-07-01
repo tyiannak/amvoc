@@ -11,7 +11,7 @@ import os
 MIN_VOC_DUR = 0.005
 # The frequencies used for spectral energy calculation (Hz)
 F1 = 30000
-F2 = 100000
+F2 = 110000
 
 def read_ground_truth(filename, offset=0):
     """
