@@ -29,7 +29,7 @@ MIN_VOC_DUR = 0.005
 
 # The frequencies used for spectral energy calculation (Hz)
 F1 = 30000
-F2 = 100000
+F2 = 110000
 
 # Also, default thres value is set to 1.3 (this is the optimal based on
 # the same evaluation that led to the parameter set of the
@@ -65,26 +65,43 @@ def get_layout():
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
 
-    clusters, points, features = ar.cluster_syllables(seg_limits, spectrogram,
-                                                      sp_freq,
-                                                      f_low, f_high, ST_STEP)
-    points_all_x = []
-    points_all_y = []
+    clusters, f_points, f_points_init, feats = ar.cluster_syllables(seg_limits,
+                                                                    spectrogram,
+                                                                    sp_freq,
+                                                                    f_low,
+                                                                    f_high,
+                                                                    ST_STEP)
+    f_points_all, f_points_init_all = [[], []], [[], []]
     for iS in range(len(seg_limits)):
-        points_all_x += points[iS][0]
-        points_all_y += points[iS][1]
+        f_points_all[0] += f_points[iS][0]
+        f_points_all[1] += f_points[iS][1]
+        f_points_init_all[0] += f_points_init[iS][0]
+        f_points_init_all[1] += f_points_init[iS][1]
 
-    shapes2 = []
-    for (x, y) in zip(points_all_x, points_all_y):
-        print(x, y)
+#        f_points_init_all.append([f_points_init[iS][0], f_points_init[iS][1]])
+
+    shapes2, shapes3 = [], []
+    for x, y in zip(f_points_all[0], f_points_all[1]):
         s1 = {
-            'type': 'rect', 'x0': x - ST_STEP / 5,
+            'type': 'rect',
+            'x0': x - ST_STEP / 5,
             'y0': y - 1000,
             'x1': x + ST_STEP / 5,
             'y1': y + 1000,
             'line': {'color': 'rgba(128, 0, 0, 1)', 'width': 1},
             'fillcolor': 'rgba(128, 0, 0, 1)'}
         shapes2.append(s1)
+
+    for x, y in zip(f_points_init_all[0], f_points_init_all[1]):
+        s1 = {
+            'type': 'rect',
+            'x0': x - ST_STEP / 15,
+            'y0': y + 1000,
+            'x1': x + ST_STEP / 15,
+            'y1': y + 2000,
+            'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 1},
+            'fillcolor': 'rgba(128, 0, 128, 1)'}
+        shapes3.append(s1)
 
     class_names = ["c1", "c2", "c3", "c4"]
     syllables = [{"st": s[0], "et": s[1], "label": class_names[clusters[iS]]}
@@ -131,7 +148,7 @@ def get_layout():
                     'layout': go.Layout(
                         xaxis=dict(title='Time (Sec)'),
                         yaxis=dict(title='Freq (Hz)'),
-                        shapes=shapes1 + shapes2)
+                        shapes=shapes1 + shapes2 + shapes3)
                 })]),
         # these are intermediate values to be used for sharing content
         # between callbacks
