@@ -96,11 +96,11 @@ def get_layout():
         s1 = {
             'type': 'rect',
             'x0': x - ST_STEP / 15,
-            'y0': y + 1000,
+            'y0': y - 200,
             'x1': x + ST_STEP / 15,
-            'y1': y + 2000,
-            'line': {'color': 'rgba(128, 0, 128, 1)', 'width': 1},
-            'fillcolor': 'rgba(128, 0, 128, 1)'}
+            'y1': y + 200,
+            'line': {'color': 'rgba(0, 128, 0, 1)', 'width': 1},
+            'fillcolor': 'rgba(128, 128, 0, 1)'}
         shapes3.append(s1)
 
     class_names = ["c1", "c2", "c3", "c4"]
