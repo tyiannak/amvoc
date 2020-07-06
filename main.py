@@ -165,8 +165,8 @@ if __name__ == "__main__":
                                                            ST_WIN, ST_STEP)
 
     # These should change depending on the signal's size
-    spec_resize_ratio_freq = 1
-    spec_resize_ratio_time = 1
+    spec_resize_ratio_freq = 2
+    spec_resize_ratio_time = 4
 
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
