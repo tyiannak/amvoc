@@ -43,13 +43,14 @@ def cluster_syllables(syllables, specgram, sp_freq,
         # per time window:
         max_pos = np.argmax(cur_image, axis=1)
         max_vals = np.max(cur_image, axis=1)
-        mean_max = np.mean(max_vals)
+        threshold = np.percentile(max_vals, 20)
 
         point_time, point_freq = [], []
         # B2. keep only the points where the frequencies are larger than the 
-        # average of the highest frequencies (thresholding)
+        # lower 20% percentile of the highest frequencies of each frame
+        # (thresholding)
         for ip in range(1, len(max_vals)-1):
-            if max_vals[ip] > 0.8 * mean_max:
+            if max_vals[ip] > threshold:
                 point_time.append(ip)
                 point_freq.append(max_pos[ip])
                 
