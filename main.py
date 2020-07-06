@@ -65,20 +65,16 @@ def get_layout():
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
 
-    clusters, f_points, f_points_init, feats = ar.cluster_syllables(seg_limits,
-                                                                    spectrogram,
-                                                                    sp_freq,
-                                                                    f_low,
-                                                                    f_high,
-                                                                    ST_STEP)
+    clusters, f_points, f_points_init, \
+    feats, feat_names = ar.cluster_syllables(seg_limits, spectrogram,
+                                             sp_freq, f_low, f_high,  ST_STEP)
+
     f_points_all, f_points_init_all = [[], []], [[], []]
     for iS in range(len(seg_limits)):
         f_points_all[0] += f_points[iS][0]
         f_points_all[1] += f_points[iS][1]
         f_points_init_all[0] += f_points_init[iS][0]
         f_points_init_all[1] += f_points_init[iS][1]
-
-#        f_points_init_all.append([f_points_init[iS][0], f_points_init[iS][1]])
 
     shapes2, shapes3 = [], []
     for x, y in zip(f_points_all[0], f_points_all[1]):

@@ -49,7 +49,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
         # B2. keep only the points where the frequencies are larger than the 
         # average of the highest frequencies (thresholding)
         for ip in range(1, len(max_vals)-1):
-            if max_vals[ip] > mean_max:
+            if max_vals[ip] > 0.8 * mean_max:
                 point_time.append(ip)
                 point_freq.append(max_pos[ip])
                 
@@ -69,15 +69,40 @@ def cluster_syllables(syllables, specgram, sp_freq,
         countour_points.append([points_t, points_f])
 
         # C. Extract features based on the frequency contour
+        delta = np.diff(points_f)
+        delta_2 = np.diff(delta)
         duration = end - start
+        max_freq = np.max(points_f)
+        min_freq = np.min(points_f)
+        mean_freq = np.mean(points_f)
+        max_freq_change = np.max(np.abs(delta))
+        min_freq_change = np.min(np.abs(delta))
+        delta_mean = np.mean(delta)
+        delta_std = np.std(delta)
+        delta2_mean = np.mean(delta_2)
+        delta2_std = np.std(delta_2)
+        freq_start = points_f[0]
+        freq_end = points_f[-1]
+
         cur_features = [duration,
-                        np.max(points_f) - np.min(points_f),
-                        points_f[0] - points_f[-1]]
+                        min_freq, max_freq, mean_freq,
+                        max_freq_change, min_freq_change,
+                        delta_mean, delta_std,
+                        delta2_mean, delta2_std,
+                        freq_start, freq_end]
+
         features.append(cur_features)
+
+    feature_names = ["duration",
+                    "min_freq", "max_freq", "mean_freq",
+                    "max_freq_change", "min_freq_change",
+                    "delta_mean", "delta_std",
+                    "delta2_mean", "delta2_std",
+                    "freq_start", "freq_end"]
 
     features = np.array(features)
     kmeans = KMeans(n_clusters=4)
     kmeans.fit(features)
     y_kmeans = kmeans.predict(features)
 
-    return y_kmeans, countour_points, init_points, features
+    return y_kmeans, countour_points, init_points, features, feature_names
