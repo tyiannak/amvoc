@@ -237,6 +237,6 @@ if __name__ == "__main__":
             syllables[int(selected)]["label"] = dropdown_class
             with open('annotations.json', 'w') as outfile:
                 json.dump(syllables, outfile)
-        return ""
+        return "{}"
 
     app.run_server(debug=True)
