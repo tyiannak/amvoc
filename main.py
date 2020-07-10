@@ -65,9 +65,10 @@ def get_layout():
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
 
-    clusters, f_points, f_points_init, \
+    clusters, images, f_points, f_points_init, \
     feats, feat_names = ar.cluster_syllables(seg_limits, spectrogram,
                                              sp_freq, f_low, f_high,  ST_STEP)
+    ar.util_generate_cluster_images(images, clusters)
 
     f_points_all, f_points_init_all = [[], []], [[], []]
     for iS in range(len(seg_limits)):
@@ -166,7 +167,7 @@ if __name__ == "__main__":
 
     # These should change depending on the signal's size
     spec_resize_ratio_freq = 2
-    spec_resize_ratio_time = 4
+    spec_resize_ratio_time = 2
 
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
@@ -235,4 +236,4 @@ if __name__ == "__main__":
                 json.dump(syllables, outfile)
         return "{}"
 
-    app.run_server(debug=True)
+    app.run_server(debug=False)

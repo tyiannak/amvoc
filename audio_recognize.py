@@ -11,6 +11,50 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.svm import SVR
 
+import matplotlib.pyplot as plt
+
+
+def util_generate_cluster_images(list_of_img, cluster_ids):
+    clusters = [0, 1, 2, 3]
+
+    for c in clusters:
+        large_image_width = 500
+        time_total = 0
+        n_freqs = list_of_img[0].shape[1]
+
+        for i, im in enumerate(list_of_img):
+            if cluster_ids[i] == c:
+                time_total += im.shape[0]
+        print(time_total, n_freqs)
+
+        n_rows = int(time_total / large_image_width) + 1
+
+        print(n_rows)
+
+        large_image = np.zeros((n_rows * n_freqs, large_image_width))
+
+        print(large_image.shape)
+
+        count_t = 0
+        count_row = 0
+        for i, im in enumerate(list_of_img):
+            if cluster_ids[i] == c:
+                t = im.shape[0]
+                if count_t + t > large_image_width:
+                    count_row +=1
+                    count_t = 0
+                print(im.T.shape)
+                large_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
+                count_t: count_t + t] = im.T
+                large_image[count_row * n_freqs, count_t: count_t + t] = 0.1
+                large_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
+                count_t] = 0.1
+                large_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
+                count_t + t] = 0.1
+                count_t += t
+        plt.imshow(large_image)
+        plt.show()
+
 def cluster_syllables(syllables, specgram, sp_freq,
                       f_low, f_high, win):
     """
@@ -27,7 +71,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
     features, countour_points, init_points = [], [], []
     f1 = np.argmin(np.abs(sp_freq - f_low))
     f2 = np.argmin(np.abs(sp_freq - f_high))
-
+    images = []
 
     for syl in syllables:
         # for each detected syllable (vocalization)
@@ -36,6 +80,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
         start = int(syl[0] / win)
         end = int(syl[1] / win)
         cur_image = specgram[start:end, f1:f2]
+        images.append(cur_image)
 
         # B. perform frequency contour detection through SVM regression
 
@@ -61,6 +106,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
         # B4. predict the frequencies for the same time range
         x_new = list(range(min(point_time), max(point_time)+1))
         y_new = svr.predict(np.array(x_new).reshape(-1, 1))
+        y_new[y_new + f1 > sp_freq.shape[0]] = sp_freq.shape[0] - f1 - 1
         points_t = [j * win + syl[0] for j in x_new]
         points_f = [sp_freq[int(j + f1)] for j in y_new]
         points_t_init = [j * win + syl[0] for j in point_time]
@@ -102,8 +148,13 @@ def cluster_syllables(syllables, specgram, sp_freq,
                     "freq_start", "freq_end"]
 
     features = np.array(features)
+    from sklearn import preprocessing
+    print(features.mean(axis = 0))
+    features = preprocessing.scale(features)
     kmeans = KMeans(n_clusters=4)
     kmeans.fit(features)
+    print(features.mean(axis = 0))
     y_kmeans = kmeans.predict(features)
 
-    return y_kmeans, countour_points, init_points, features, feature_names
+    return y_kmeans, images, countour_points, \
+           init_points, features, feature_names
