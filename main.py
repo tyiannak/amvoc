@@ -18,6 +18,7 @@ import audio_process as ap
 import audio_recognize as ar
 import json
 
+
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
@@ -68,7 +69,7 @@ def get_layout():
     clusters, images, f_points, f_points_init, \
     feats, feat_names = ar.cluster_syllables(seg_limits, spectrogram,
                                              sp_freq, f_low, f_high,  ST_STEP)
-    ar.util_generate_cluster_images(images, clusters)
+    cluster_images = ar.util_generate_cluster_images(images, clusters)
 
     f_points_all, f_points_init_all = [[], []], [[], []]
     for iS in range(len(seg_limits)):
@@ -129,7 +130,32 @@ def get_layout():
                         {'label': 'class4', 'value': 'c4'},
                     ], value='no'
                 ),
-            ], className="two columns")
+            ], className="two columns"),
+            html.Div([
+                dcc.Graph(
+                    id='cluster1',
+                    figure={
+                        'data': [go.Heatmap(z=cluster_images[0],
+                                            name='F', colorscale='Jet',
+                                            showscale=False)],
+                        'layout': go.Layout(
+                            xaxis=dict(visible=False),
+                            yaxis=dict(visible=False))
+                    }),
+            ], className="six columns"),
+            html.Div([
+                dcc.Graph(
+                    id='cluster2',
+                    figure={
+                        'data': [go.Heatmap(z=cluster_images[1],
+                                            name='F', colorscale='Jet',
+                                            showscale=False)],
+                        'layout': go.Layout(
+                            xaxis=dict(visible=False),
+                            yaxis=dict(visible=False))
+                    }),
+            ], className="three columns")
+
         ], className="row"),
 
         html.Div([
@@ -147,6 +173,8 @@ def get_layout():
                         yaxis=dict(title='Freq (Hz)'),
                         shapes=shapes1 + shapes2 + shapes3)
                 })]),
+
+
         # these are intermediate values to be used for sharing content
         # between callbacks
         # (see here https://dash.plotly.com/sharing-data-between-callbacks)

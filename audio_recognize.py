@@ -15,45 +15,42 @@ import matplotlib.pyplot as plt
 
 
 def util_generate_cluster_images(list_of_img, cluster_ids):
-    clusters = [0, 1, 2, 3]
-
+    clusters = np.unique(cluster_ids)
+    cluster_images = []
     for c in clusters:
-        large_image_width = 500
+        cluster_image_width = 500
         time_total = 0
         n_freqs = list_of_img[0].shape[1]
 
         for i, im in enumerate(list_of_img):
             if cluster_ids[i] == c:
                 time_total += im.shape[0]
-        print(time_total, n_freqs)
 
-        n_rows = int(time_total / large_image_width) + 1
-
-        print(n_rows)
-
-        large_image = np.zeros((n_rows * n_freqs, large_image_width))
-
-        print(large_image.shape)
+        n_rows = int(time_total / cluster_image_width) + 1
+        cluster_image = np.zeros((n_rows * n_freqs, cluster_image_width))
 
         count_t = 0
         count_row = 0
         for i, im in enumerate(list_of_img):
             if cluster_ids[i] == c:
                 t = im.shape[0]
-                if count_t + t > large_image_width:
+                if count_t + t > cluster_image_width:
                     count_row +=1
                     count_t = 0
-                print(im.T.shape)
-                large_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
+                # append current spectrogram image to larger map:
+                cluster_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
                 count_t: count_t + t] = im.T
-                large_image[count_row * n_freqs, count_t: count_t + t] = 0.1
-                large_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
+                # create "grid"
+                cluster_image[count_row * n_freqs, count_t: count_t + t] = 0.1
+                cluster_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
                 count_t] = 0.1
-                large_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
+                cluster_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
                 count_t + t] = 0.1
                 count_t += t
-        plt.imshow(large_image)
-        plt.show()
+        cluster_images.append(cluster_image)
+    return(cluster_images)
+#        plt.imshow(cluster_image)
+#        plt.show()
 
 def cluster_syllables(syllables, specgram, sp_freq,
                       f_low, f_high, win):
