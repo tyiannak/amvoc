@@ -17,7 +17,7 @@ from dash.dependencies import Input, Output, State
 import audio_process as ap
 import audio_recognize as ar
 import json
-
+import dash_bootstrap_components as dbc
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 colors = {'background': '#111111', 'text': '#7FDBFF'}
@@ -110,55 +110,71 @@ def get_layout():
     shapes1 = get_shapes(seg_limits, f_low, f_high)
 
     layout = html.Div(children=[
-        html.H2(children='AMVOC', style={'textAlign': 'center',
-                                         'color': colors['text']}),
-        html.Div([
-            html.Div([
-                html.Label(id="label_sel_start", children="Selected start",
-                           style={'textAlign': 'center',
-                                  'color': colors['text']}),
-                html.Label(id="label_sel_end", children="Selected end",
-                           style={'textAlign': 'center',
-                                  'color': colors['text']}),
-                dcc.Dropdown(
-                    id='dropdown_class',
-                    options=[
-                        {'label': 'no-class', 'value': 'no'},
-                        {'label': 'class1', 'value': 'c1'},
-                        {'label': 'class2', 'value': 'c2'},
-                        {'label': 'class3', 'value': 'c3'},
-                        {'label': 'class4', 'value': 'c4'},
-                    ], value='no'
+        dbc.Row(dbc.Col(html.H2(children='AMVOC', style={'textAlign': 'center',
+                                     'color': colors['text']}))),
+        dbc.Row(
+            [
+                dbc.Col(
+                    html.Label(id="label_sel_start", children="Selected start",
+                               style={'textAlign': 'center',
+                                       'color': colors['text']}), width=1
                 ),
-            ], className="two columns"),
-            html.Div([
-                dcc.Graph(
-                    id='cluster1',
-                    figure={
-                        'data': [go.Heatmap(z=cluster_images[0],
-                                            name='F', colorscale='Jet',
-                                            showscale=False)],
-                        'layout': go.Layout(
-                            xaxis=dict(visible=False),
-                            yaxis=dict(visible=False))
-                    }),
-            ], className="six columns"),
-            html.Div([
-                dcc.Graph(
-                    id='cluster2',
-                    figure={
-                        'data': [go.Heatmap(z=cluster_images[1],
-                                            name='F', colorscale='Jet',
-                                            showscale=False)],
-                        'layout': go.Layout(
-                            xaxis=dict(visible=False),
-                            yaxis=dict(visible=False))
-                    }),
-            ], className="three columns")
+                dbc.Col
+                    (
+                    html.Label(id="label_sel_end", children="Selected end",
+                               style={'textAlign': 'center',
+                                      'color': colors['text']}), width=1
+                ),
+                dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_class',
+                        options=[
+                            {'label': 'no-class', 'value': 'no'},
+                            {'label': 'class1', 'value': 'c1'},
+                            {'label': 'class2', 'value': 'c2'},
+                            {'label': 'class3', 'value': 'c3'},
+                            {'label': 'class4', 'value': 'c4'},
+                        ], value='no'
+                    ), width=2
+                )
+            ]),
 
-        ], className="row"),
+        dbc.Row(
+            [
+                dbc.Col(
+                    html.Div([
+                        dcc.Graph(
+                            id='cluster1',
+                            figure={
+                                'data': [go.Heatmap(z=cluster_images[0],
+                                                    name='F',
+                                                    colorscale='Jet',
+                                                    showscale=False)],
+                                'layout': go.Layout(
+                                    xaxis=dict(visible=False),
+                                    yaxis=dict(visible=False))
+                            }),
+                    ]),
+                    width=3),
+                dbc.Col(
+                    html.Div([
+                        dcc.Graph(
+                            id='cluster2',
+                            figure={
+                                'data': [go.Heatmap(z=cluster_images[1],
+                                                    name='F',
+                                                    colorscale='Jet',
+                                                    showscale=False)],
+                                'layout': go.Layout(
+                                    xaxis=dict(visible=False),
+                                    yaxis=dict(visible=False))
+                            }),
+                    ]),
+                    width=3)
+            ]
+        ),
 
-        html.Div([
+        dbc.Row(dbc.Col(
             dcc.Graph(
                 id='heatmap1',
                 figure={
@@ -172,7 +188,7 @@ def get_layout():
                         xaxis=dict(title='Time (Sec)'),
                         yaxis=dict(title='Freq (Hz)'),
                         shapes=shapes1 + shapes2 + shapes3)
-                })]),
+                }), width=12)),
 
 
         # these are intermediate values to be used for sharing content
@@ -206,7 +222,9 @@ if __name__ == "__main__":
 
     spectral_energy_1 = spectrogram.sum(axis=1)
     spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
-    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+    app = dash.Dash(
+        external_stylesheets=[dbc.themes.BOOTSTRAP]
+    )
     clean_spectrogram = ap.clean_spectrogram(spectrogram)
     app.layout = get_layout()
 
@@ -264,4 +282,4 @@ if __name__ == "__main__":
                 json.dump(syllables, outfile)
         return "{}"
 
-    app.run_server(debug=False)
+    app.run_server()
