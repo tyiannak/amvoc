@@ -19,7 +19,6 @@ import audio_recognize as ar
 import json
 import dash_bootstrap_components as dbc
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
 # These values are selected based on the evaluation.py script and the results
@@ -109,21 +108,28 @@ def get_layout():
 
     shapes1 = get_shapes(seg_limits, f_low, f_high)
 
-    layout = html.Div(children=[
-        dbc.Row(dbc.Col(html.H2(children='AMVOC', style={'textAlign': 'center',
-                                     'color': colors['text']}))),
+    chart_layout = go.Layout( margin=dict(l=1, r=1, b=1, t=1, pad=4),
+                              xaxis=dict(visible=False),
+                              yaxis=dict(visible=False))
+
+    layout = dbc.Container([
+
+        dbc.Row(dbc.Col(html.H2("AMVOC", style={'textAlign': 'center',
+                                       'color': colors['text']}))),
         dbc.Row(
             [
                 dbc.Col(
                     html.Label(id="label_sel_start", children="Selected start",
                                style={'textAlign': 'center',
-                                       'color': colors['text']}), width=1
+                                       'color': colors['text']}),
+                    width=1,
                 ),
                 dbc.Col
                     (
                     html.Label(id="label_sel_end", children="Selected end",
                                style={'textAlign': 'center',
-                                      'color': colors['text']}), width=1
+                                      'color': colors['text']}),
+                    width=1,
                 ),
                 dbc.Col(
                     dcc.Dropdown(
@@ -135,9 +141,10 @@ def get_layout():
                             {'label': 'class3', 'value': 'c3'},
                             {'label': 'class4', 'value': 'c4'},
                         ], value='no'
-                    ), width=2
+                    ),
+                    width=2,
                 )
-            ]),
+            ], className="h-5"),
 
         dbc.Row(
             [
@@ -150,9 +157,7 @@ def get_layout():
                                                     name='F',
                                                     colorscale='Jet',
                                                     showscale=False)],
-                                'layout': go.Layout(
-                                    xaxis=dict(visible=False),
-                                    yaxis=dict(visible=False))
+                                'layout': chart_layout
                             }),
                     ]),
                     width=3),
@@ -165,13 +170,12 @@ def get_layout():
                                                     name='F',
                                                     colorscale='Jet',
                                                     showscale=False)],
-                                'layout': go.Layout(
-                                    xaxis=dict(visible=False),
-                                    yaxis=dict(visible=False))
+                                'layout': chart_layout
                             }),
                     ]),
-                    width=3)
-            ]
+                    width=3,
+                    style={"height": "100%", "background-color": "white"})
+            ], className="h-25"
         ),
 
         dbc.Row(dbc.Col(
@@ -185,19 +189,23 @@ def get_layout():
                                         name='F', colorscale='Jet',
                                         showscale=False)],
                     'layout': go.Layout(
+                        margin=dict(l=55, r=20, b=40, t=20, pad=4),
                         xaxis=dict(title='Time (Sec)'),
                         yaxis=dict(title='Freq (Hz)'),
                         shapes=shapes1 + shapes2 + shapes3)
-                }), width=12)),
+                }), width=12,
+            style={"height": "100%", "background-color": "white"}),
+            className="h-50",
+        ),
 
 
         # these are intermediate values to be used for sharing content
         # between callbacks
         # (see here https://dash.plotly.com/sharing-data-between-callbacks)
-        html.Div(id='intermediate_val_syllables', style={'display': 'none'}),
-        html.Div(id='intermediate_val_selected_syllable',
+        dbc.Row(id='intermediate_val_syllables', style={'display': 'none'}),
+        dbc.Row(id='intermediate_val_selected_syllable',
                  style={'display': 'none'})
-    ])
+    ], style={"height": "100vh"})
 
     return layout
 
@@ -248,6 +256,7 @@ if __name__ == "__main__":
         [Input('heatmap1', 'clickData')])
     def display_click_data(click_data):
         with open('annotations.json') as json_file:
+            json_file.seek(0)
             syllables = json.load(json_file)
         t1, t2 = 0.0, 0.0
         i_s = -1
@@ -275,6 +284,7 @@ if __name__ == "__main__":
          Input('intermediate_val_selected_syllable', 'children')])
     def update_annotations(dropdown_class, selected):
         with open('annotations.json') as json_file:
+            json_file.seek(0)
             syllables = json.load(json_file)
         if dropdown_class and selected:
             syllables[int(selected)]["label"] = dropdown_class
