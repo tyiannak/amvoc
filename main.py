@@ -69,6 +69,7 @@ def get_layout():
     feats, feat_names = ar.cluster_syllables(seg_limits, spectrogram,
                                              sp_freq, f_low, f_high,  ST_STEP)
     cluster_images = ar.util_generate_cluster_images(images, clusters)
+    cluster_plots = ar.util_generate_cluster_graphs(f_points, clusters)
 
     f_points_all, f_points_init_all = [[], []], [[], []]
     for iS in range(len(seg_limits)):
@@ -108,14 +109,12 @@ def get_layout():
 
     shapes1 = get_shapes(seg_limits, f_low, f_high)
 
-    chart_layout = go.Layout( margin=dict(l=1, r=1, b=1, t=1, pad=4),
-                              xaxis=dict(visible=False),
-                              yaxis=dict(visible=False))
-
     layout = dbc.Container([
-
+        # Title
         dbc.Row(dbc.Col(html.H2("AMVOC", style={'textAlign': 'center',
                                        'color': colors['text']}))),
+
+        # Selected segment controls
         dbc.Row(
             [
                 dbc.Col(
@@ -146,6 +145,7 @@ def get_layout():
                 )
             ], className="h-5"),
 
+        # Clusters visualizations
         dbc.Row(
             [
                 dbc.Col(
@@ -153,31 +153,62 @@ def get_layout():
                         dcc.Graph(
                             id='cluster1',
                             figure={
-                                'data': [go.Heatmap(z=cluster_images[0],
-                                                    name='F',
-                                                    colorscale='Jet',
-                                                    showscale=False)],
-                                'layout': chart_layout
-                            }),
-                    ]),
-                    width=3),
+                                'data': cluster_plots[0],
+                                'layout': go.Layout(
+                                    margin=dict(l=1, r=1, b=1, t=1, pad=4),
+                                    xaxis=dict(visible=False),
+                                    yaxis=dict(visible=False,
+                                               autorange=False,
+                                               range=[0, 120000]),)
+                                }),
+                    ]), width=3),
                 dbc.Col(
                     html.Div([
                         dcc.Graph(
                             id='cluster2',
                             figure={
-                                'data': [go.Heatmap(z=cluster_images[1],
-                                                    name='F',
-                                                    colorscale='Jet',
-                                                    showscale=False)],
-                                'layout': chart_layout
+                                'data': cluster_plots[1],
+                                'layout': go.Layout(
+                                    margin=dict(l=1, r=1, b=1, t=1, pad=4),
+                                    xaxis=dict(visible=False),
+                                    yaxis=dict(visible=False,
+                                               autorange=False,
+                                               range=[0, 120000]), )
                             }),
-                    ]),
-                    width=3,
-                    style={"height": "100%", "background-color": "white"})
+                    ]), width=3),
+                dbc.Col(
+                    html.Div([
+                        dcc.Graph(
+                            id='cluster3',
+                            figure={
+                                'data': cluster_plots[2],
+                                'layout': go.Layout(
+                                    margin=dict(l=1, r=1, b=1, t=1, pad=4),
+                                    xaxis=dict(visible=False),
+                                    yaxis=dict(visible=False,
+                                               autorange=False,
+                                               range=[0, 120000]), )
+                            }),
+                    ]), width=3),
+                dbc.Col(
+                    html.Div([
+                        dcc.Graph(
+                            id='cluster4',
+                            figure={
+                                'data': cluster_plots[3],
+                                'layout': go.Layout(
+                                    margin=dict(l=1, r=1, b=1, t=1, pad=4),
+                                    xaxis=dict(visible=False),
+                                    yaxis=dict(visible=False,
+                                               autorange=False,
+                                               range=[0, 120000]), )
+                            }),
+                    ]), width=3),
+
             ], className="h-25"
         ),
 
+        # Main heatmap
         dbc.Row(dbc.Col(
             dcc.Graph(
                 id='heatmap1',

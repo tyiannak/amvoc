@@ -10,8 +10,37 @@ Maintainer: Theodoros Giannakopoulos {tyiannak@gmail.com}
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.svm import SVR
+import plotly.graph_objs as go
 
-import matplotlib.pyplot as plt
+def util_generate_cluster_graphs(list_contour, cluster_ids):
+    clusters = np.unique(cluster_ids)
+    cluster_plots = [[] for c in range(len(clusters))]
+    for il, l in enumerate(list_contour):
+        t = l[0]
+        y = l[1]
+        t = t - np.min(t)
+        if len(cluster_plots[cluster_ids[il]]) == 0:
+            cluster_plots[cluster_ids[il]] = ([[t.tolist(), y]])
+        else:
+            cluster_plots[cluster_ids[il]].append([t.tolist(), y])
+
+    scatter_plots = [[] for c in range(len(clusters))]
+    for c in range(len(clusters)):
+        L = len(cluster_plots[c])
+        required = 5
+        if required > L:
+            th = 0
+        else:
+            th = 1 - float(required) / L
+        for i in range(len(cluster_plots[c])):
+            x = cluster_plots[c][i][0]
+            y = cluster_plots[c][i][1]
+            if np.random.rand() > th:
+                print(i, x, y)
+                scatter_plots[c].append(go.Scatter(x=x, y=y,
+                                                   name="F_{0:d}".format(i)))
+
+    return scatter_plots
 
 
 def util_generate_cluster_images(list_of_img, cluster_ids):
