@@ -27,18 +27,13 @@ def util_generate_cluster_graphs(list_contour, cluster_ids):
     scatter_plots = [[] for c in range(len(clusters))]
     for c in range(len(clusters)):
         L = len(cluster_plots[c])
-        required = 5
-        if required > L:
-            th = 0
-        else:
-            th = 1 - float(required) / L
-        for i in range(len(cluster_plots[c])):
+        required = 10
+        perms = np.random.permutation(L)
+        for i in perms[0:required]:
             x = cluster_plots[c][i][0]
             y = cluster_plots[c][i][1]
-            if np.random.rand() > th:
-                print(i, x, y)
-                scatter_plots[c].append(go.Scatter(x=x, y=y,
-                                                   name="F_{0:d}".format(i)))
+            scatter_plots[c].append(go.Scatter(x=x, y=y,
+                                               name="F_{0:d}".format(i)))
 
     return scatter_plots
 
@@ -144,7 +139,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
         # C. Extract features based on the frequency contour
         delta = np.diff(points_f)
         delta_2 = np.diff(delta)
-        duration = end - start
+        duration = points_t[-1] - points_t[0]
         max_freq = np.max(points_f)
         min_freq = np.min(points_f)
         mean_freq = np.mean(points_f)
@@ -156,6 +151,8 @@ def cluster_syllables(syllables, specgram, sp_freq,
         delta2_std = np.std(delta_2)
         freq_start = points_f[0]
         freq_end = points_f[-1]
+        pos_min_freq = (points_t[np.argmin(points_f)] - points_t[0]) / duration
+        pos_max_freq = (points_t[np.argmax(points_f)] - points_t[0]) / duration
 
         cur_features = [duration,
                         min_freq, max_freq, mean_freq,
@@ -163,7 +160,18 @@ def cluster_syllables(syllables, specgram, sp_freq,
                         delta_mean, delta_std,
                         delta2_mean, delta2_std,
                         freq_start, freq_end]
-
+        """
+        cur_features = [pos_min_freq,
+                        pos_max_freq,
+                        (freq_start - freq_end) / mean_freq]
+        """
+        """
+        import scipy.signal
+        desired = 100
+        ratio = int(100 * (desired / len(points_f)))
+        cur_features = scipy.signal.resample_poly(points_f, up=ratio, down=100)
+        cur_features = cur_features[0:desired - 10].tolist()
+        """
         features.append(cur_features)
 
     feature_names = ["duration",
@@ -175,11 +183,9 @@ def cluster_syllables(syllables, specgram, sp_freq,
 
     features = np.array(features)
     from sklearn import preprocessing
-    print(features.mean(axis = 0))
     features = preprocessing.scale(features)
     kmeans = KMeans(n_clusters=4)
     kmeans.fit(features)
-    print(features.mean(axis = 0))
     y_kmeans = kmeans.predict(features)
 
     return y_kmeans, images, countour_points, \
