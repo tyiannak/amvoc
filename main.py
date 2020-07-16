@@ -68,7 +68,6 @@ def get_layout():
     clusters, images, f_points, f_points_init, \
     feats, feat_names = ar.cluster_syllables(seg_limits, spectrogram,
                                              sp_freq, f_low, f_high,  ST_STEP)
-    cluster_images = ar.util_generate_cluster_images(images, clusters)
     cluster_plots = ar.util_generate_cluster_graphs(f_points, clusters)
 
     f_points_all, f_points_init_all = [[], []], [[], []]
