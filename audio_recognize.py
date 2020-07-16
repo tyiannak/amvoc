@@ -154,24 +154,26 @@ def cluster_syllables(syllables, specgram, sp_freq,
         pos_min_freq = (points_t[np.argmin(points_f)] - points_t[0]) / duration
         pos_max_freq = (points_t[np.argmax(points_f)] - points_t[0]) / duration
 
-        cur_features = [duration,
-                        min_freq, max_freq, mean_freq,
-                        max_freq_change, min_freq_change,
-                        delta_mean, delta_std,
-                        delta2_mean, delta2_std,
-                        freq_start, freq_end]
-        """
-        cur_features = [pos_min_freq,
-                        pos_max_freq,
-                        (freq_start - freq_end) / mean_freq]
-        """
-        """
-        import scipy.signal
-        desired = 100
-        ratio = int(100 * (desired / len(points_f)))
-        cur_features = scipy.signal.resample_poly(points_f, up=ratio, down=100)
-        cur_features = cur_features[0:desired - 10].tolist()
-        """
+        feature_mode = 2
+        if feature_mode == 1:
+            cur_features = [duration,
+                            min_freq, max_freq, mean_freq,
+                            max_freq_change, min_freq_change,
+                            delta_mean, delta_std,
+                            delta2_mean, delta2_std,
+                            freq_start, freq_end]
+        elif feature_mode == 2:
+            cur_features = [duration,
+                            pos_min_freq,
+                            pos_max_freq,
+                            (freq_start - freq_end) / mean_freq]
+        else:
+            import scipy.signal
+            desired = 100
+            ratio = int(100 * (desired / len(points_f)))
+            cur_features = scipy.signal.resample_poly(points_f, up=ratio, down=100)
+            cur_features = cur_features[0:desired - 10].tolist()
+
         features.append(cur_features)
 
     feature_names = ["duration",
