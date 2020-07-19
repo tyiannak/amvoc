@@ -47,6 +47,22 @@ def get_spectrogram(path, win, step, disable_caching=True, smooth=True):
     return spec_val, np.array(spec_time), np.array(spec_freq), fs
 
 
+def get_spectrogram_buffer(s, fs, win, step, smooth=True):
+    """
+    get_spectrogram_buffer() same as get_spectrogram() but input is an audio
+    buffer, instead of an audio file
+    """
+    spec_val, spec_time, spec_freq = sF.spectrogram(s, fs,
+                                                    round(fs * win),
+                                                    round(fs * step),
+                                                    False, True)
+    if smooth:
+        spec_val = ndimage.median_filter(spec_val, (2, 3))
+
+    return spec_val, np.array(spec_time), np.array(spec_freq), fs
+
+
+
 def clean_spectrogram(spectrogram):
     """
     returns a normalized spectrogram where peaks are more clear
