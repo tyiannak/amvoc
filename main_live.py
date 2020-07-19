@@ -9,7 +9,7 @@ import datetime
 import signal
 import time
 import scipy.io.wavfile as wavfile
-
+import audio_process as ap
 
 global fs
 global all_data
@@ -30,9 +30,12 @@ def signal_handler(signal, frame):
 
 
 signal.signal(signal.SIGINT, signal_handler)
-buff_size = 0.01          # window size in seconds
+buff_size = 0.01             # recording buffer size in seconds
+mid_buffer_size = 0.5        # processing buffer size in seconds
+st_win = 0.002               # short-term window size in seconds
 
 all_data = []
+mid_buffer = []
 time_start = time.time()
 outstr = datetime.datetime.now().strftime("%Y_%m_%d_%I:%M%p")
 
@@ -51,7 +54,15 @@ while 1:  # for each recorded window (until ctr+c) is pressed
     # then normalize and convert to numpy array:
     x = np.double(shorts_list) / (2**15)
     seg_len = len(x)
-    print(len(x))
 
     all_data += shorts_list
+
+    mid_buffer += shorts_list
+    if len(mid_buffer) >= int(mid_buffer_size * fs):
+        spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram_buffer(mid_buffer,
+                                                                      fs,
+                                                                      st_win,
+                                                                      st_win)
+        mid_buffer = []
+
 
