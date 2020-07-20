@@ -77,7 +77,7 @@ def clean_spectrogram(spectrogram):
 
 
 def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
-                  min_duration=0.02):
+                  min_duration=0.02, threshold_buf=None):
     """
     The basic vocalization (syllable) detection method
     :param spectral_en: the input feature sequence (spectral energy)
@@ -86,19 +86,28 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     :param win_step: window step (in msecs) used in feature extraction
     :param threshold_per: threshold parameter (percentage)
     :param min_duration: minimum vocalization duration
+    :param threshold_buf: this optional argument is the buffer of the previous
+    average spectral energy values. It is to be used in online mode (where
+    information on the whole recording is not available and therefore threshold
+    calculation must be incremental)
     :return:
       1) segment limits of detected syllables
       2) dynamic threshold sequence
     """
     # Step 1: dynamic threshold computation (threshold is a sequence) for 
     # spectral energy:
-    global_mean = np.mean(spectral_en)
-    filter_size = int(2 / win_step)
-    moving_avg_filter = np.ones(filter_size) / filter_size
-    threshold = threshold_per * (0.5 * np.convolve(spectral_en,
-                                                   moving_avg_filter, 
-                                                   mode="same") +
-                                 0.5 * global_mean) / 100.0
+    if threshold_buf is None:
+        global_mean = np.mean(spectral_en)
+        filter_size = int(2 / win_step)
+        moving_avg_filter = np.ones(filter_size) / filter_size
+        threshold = threshold_per * (0.5 * np.convolve(spectral_en,
+                                                       moving_avg_filter,
+                                                       mode="same") +
+                                     0.5 * global_mean) / 100.0
+    else:
+        threshold = threshold_per * (0.5 * np.mean(threshold_buf) +
+                                     0.5 * np.mean(spectral_en)) / 100.0
+
 
     # Step 2: spectral energy ratio computation:
     C = 0.01
