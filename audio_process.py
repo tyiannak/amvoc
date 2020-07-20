@@ -121,7 +121,10 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     # (a) spectral energy is higher than the dynamic threshold and
     # (b) spectral ratio (spectral energy by total energy is
     #     larger than the mean spectral ratio)
-    mean_spectral_ratio = spectral_ratio.mean()
+    # mean_spectral_ratio = spectral_ratio.mean()
+    # TODO: This value is optimized for F1, F2 = 30 - 110 KHz and should be
+    # TODO: recalculated if changed !
+    mean_spectral_ratio = 0.69
     is_vocal = ((spectral_en > threshold) &
                 (spectral_ratio > mean_spectral_ratio))
     
