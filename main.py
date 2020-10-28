@@ -425,10 +425,8 @@ if __name__ == "__main__":
             index = hoverData['points'][0]['pointIndex']
         else:
             index = 0
-        length = sp_time[segments[index][1]]-sp_time[segments[index][0]]
-        diff = sp_time[segments[:,1]]-sp_time[segments[:,0]]
         fig = go.Figure(data = go.Heatmap(x =sp_time[segments[index][0]:segments[index][1]], y=sp_freq[f1:f2], z = images[index].T, zmin = np.amin(images[index]), zmax = np.amax(images[index])+1*(np.amax(images[index])-np.amin(images[index])), showscale=False))
-        fig.update_layout(title = 'Spectrogram of syllable', margin={'l': 0, 'b': 40, 't': 40, 'r': 0}, xaxis = dict(range=[sp_time[segments[index][0]]-np.mean(diff), sp_time[segments[index][1]]+np.mean(diff)], title = 'Time (Sec)'),
+        fig.update_layout(title = 'Spectrogram of syllable', margin={'l': 0, 'b': 40, 't': 40, 'r': 0}, xaxis = dict(range=[(sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2-0.1, (sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2+0.1], title = 'Time (Sec)'),
                         yaxis=dict(range = [sp_freq[0], sp_freq[-1]], title='Freq (Hz)'))
         return fig
 
@@ -447,9 +445,8 @@ if __name__ == "__main__":
         l = list_contour[index]
         t = l[0]
         y = l[1]
-        diff = sp_time[segments[:,1]]-sp_time[segments[:,0]]
         fig = go.Figure(data = go.Scatter(x = t, y=y, mode='lines+markers'))
-        fig.update_layout(title = 'Points of max frequency per time window of syllable', margin=dict(l=0, r=0, b=40, t=40, pad=4), xaxis=dict(visible=True,range=[sp_time[segments[index][0]]-np.mean(diff), sp_time[segments[index][1]]+np.mean(diff)], title = 'Time (Sec)'), yaxis=dict(visible=True, autorange=False, range=[sp_freq[0], sp_freq[-1]], title='Freq (Hz)'))
+        fig.update_layout(title = 'Points of max frequency per time window of syllable', margin=dict(l=0, r=0, b=40, t=40, pad=4), xaxis=dict(visible=True, title = 'Time (Sec)'), yaxis=dict(visible=True, autorange=False, range=[sp_freq[0], sp_freq[-1]], title='Freq (Hz)'))
         return fig
 
     app.run_server()
