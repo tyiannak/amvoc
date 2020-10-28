@@ -93,42 +93,6 @@ def metrics(X, y):
     db_score = davies_bouldin_score(X,y)     
     return silhouette_avg, ch_score, db_score
 
-def cluster_plot(features, y, centers):
-    # Tune T-SNE
-    # feats = []
-    # kl = []
-    # iterations = [500, 1000, 2000, 5000]
-    # for i in range (4):
-    #     tsne = TSNE(n_components=2, perplexity = 30, n_iter = iterations[i])
-    #     feats_2d = tsne.fit_transform(features)
-    #     feats.append(feats_2d)
-    #     kl.append(tsne.kl_divergence_)
-    # index = np.argmin(np.array(kl))
-    # print(iterations[index])
-    # feats_2d = feats[index]
-
-    #Dimension reduction for plotting
-    tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
-    features = np.append(features, centers, axis = 0)
-    n_clusters = len(np.unique(y))
-    feats_2 = tsne.fit_transform(features)
-    feats_2d = feats_2[:-n_clusters, :]
-    centers_2d = feats_2[-n_clusters:,:]
-    fig = go.Figure(layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
-    fig.add_trace(go.Scatter(x = feats_2d[:, 0], y = feats_2d[:, 1], name='',
-                     mode='markers',
-                     marker=go.scatter.Marker(color=y),
-                     showlegend=False))
-    
-    # Draw Xs at cluster centers
-    fig.add_trace(go.Scatter(x = centers_2d[:, 0], y = centers_2d[:, 1], name='',
-                     mode='markers',
-                     marker=go.scatter.Marker(symbol='x',
-                                       size=20,
-                                       color=np.arange(len(np.unique(y)))),
-                     showlegend=False))
-    return fig
-
 
 def cluster_syllables(syllables, specgram, sp_freq,
                       f_low, f_high, win):

@@ -18,6 +18,7 @@ import audio_process as ap
 import audio_recognize as ar
 import json
 import dash_bootstrap_components as dbc
+from sklearn.manifold import TSNE
 
 
 colors = {'background': '#111111', 'text': '#7FDBFF'}
@@ -68,7 +69,23 @@ def get_layout():
     images, f_points, f_points_init, \
     feats, feat_names = ar.cluster_syllables(seg_limits, spectrogram,
                                              sp_freq, f_low, f_high,  ST_STEP)
+                                             
+    #Dimension reduction for plotting
+    # Tune T-SNE
+    # feats = []
+    # kl = []
+    # iterations = [500, 1000, 2000, 5000]
+    # for i in range (4):
+    #     tsne = TSNE(n_components=2, perplexity = 30, n_iter = iterations[i])
+    #     feats_2d = tsne.fit_transform(features)
+    #     feats.append(feats_2d)
+    #     kl.append(tsne.kl_divergence_)
+    # index = np.argmin(np.array(kl))
+    # print(iterations[index])
+    tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
+    feats_2 = tsne.fit_transform(feats)
     np.save('feats.npy', feats) # save
+    np.save('feats_2d.npy', feats_2)
     np.save('images.npy', np.array(images,dtype = object))
     np.save('listcontour.npy', np.array(f_points, dtype=object))
     np.save('seg_limits.npy', seg_limits)
@@ -233,7 +250,7 @@ def get_layout():
                                         showscale=False)],
                     'layout': go.Layout(
                         title = 'Spectrogram of the signal',
-                        margin=dict(l=55, r=20, b=80, t=40, pad=4),
+                        margin=dict(l=55, r=20, b=120, t=40, pad=4),
                         xaxis=dict(title='Time (Sec)'),
                         yaxis=dict(title='Freq (Hz)'),
                         shapes=shapes1 + shapes2 + shapes3)
@@ -381,14 +398,17 @@ if __name__ == "__main__":
          Input('dropdown_n_clusters', 'value')])
     def update_cluster_graph(method, n_clusters):
         feats = np.load('feats.npy')
+        feats_2d = np.load('feats_2d.npy')
         seg_limits = np.load('seg_limits.npy')
         y, centers, scores = ar.clustering(method, n_clusters, feats)
         syllables = [{"st": s[0], "et": s[1], "label": 'c{}'.format(y[iS])}
                     for iS, s in enumerate(seg_limits)]
         with open('annotations.json', 'w') as outfile:
             json.dump(syllables, outfile)
-
-        fig = ar.cluster_plot(feats, y, centers)
+        fig = go.Figure(data = go.Scatter(x = feats_2d[:, 0], y = feats_2d[:, 1], name='',
+                     mode='markers',
+                     marker=go.scatter.Marker(color=y),
+                     showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
         return fig, round(scores[0],3), round(scores[1]), round(scores[2],3)
 
     @app.callback(
@@ -406,8 +426,9 @@ if __name__ == "__main__":
         else:
             index = 0
         length = sp_time[segments[index][1]]-sp_time[segments[index][0]]
-        fig = go.Figure(data = go.Heatmap(x =sp_time[segments[index][0]:segments[index][1]], y=sp_freq[f1:f2], z = images[index].T , zmin = np.amin(images[index]), zmax = np.amax(images[index])+1*(np.amax(images[index])-np.amin(images[index])), showscale=False))
-        fig.update_layout(title = 'Spectrogram of syllable', margin={'l': 0, 'b': 40, 't': 40, 'r': 0}, xaxis = dict(range=[sp_time[segments[index][0]]-length, sp_time[segments[index][1]]+length], title = 'Time (Sec)'),
+        diff = sp_time[segments[:,1]]-sp_time[segments[:,0]]
+        fig = go.Figure(data = go.Heatmap(x =sp_time[segments[index][0]:segments[index][1]], y=sp_freq[f1:f2], z = images[index].T, zmin = np.amin(images[index]), zmax = np.amax(images[index])+1*(np.amax(images[index])-np.amin(images[index])), showscale=False))
+        fig.update_layout(title = 'Spectrogram of syllable', margin={'l': 0, 'b': 40, 't': 40, 'r': 0}, xaxis = dict(range=[sp_time[segments[index][0]]-np.mean(diff), sp_time[segments[index][1]]+np.mean(diff)], title = 'Time (Sec)'),
                         yaxis=dict(range = [sp_freq[0], sp_freq[-1]], title='Freq (Hz)'))
         return fig
 
@@ -417,6 +438,8 @@ if __name__ == "__main__":
     )
     def display_hover_data(hoverData):
         list_contour = np.load('listcontour.npy', allow_pickle = True)
+        segments = np.load('segments.npy', allow_pickle=True)
+        sp_freq = np.load('sp_freq.npy')
         if hoverData:
             index = hoverData['points'][0]['pointIndex']
         else:
@@ -424,8 +447,9 @@ if __name__ == "__main__":
         l = list_contour[index]
         t = l[0]
         y = l[1]
+        diff = sp_time[segments[:,1]]-sp_time[segments[:,0]]
         fig = go.Figure(data = go.Scatter(x = t, y=y, mode='lines+markers'))
-        fig.update_layout(title = 'Points of max frequency per time window of syllable', margin=dict(l=0, r=0, b=40, t=40, pad=4), xaxis=dict(visible=True, title = 'Time (Sec)'), yaxis=dict(visible=True, autorange=False, range=[0, 120000], title='Freq (Hz)'))
+        fig.update_layout(title = 'Points of max frequency per time window of syllable', margin=dict(l=0, r=0, b=40, t=40, pad=4), xaxis=dict(visible=True,range=[sp_time[segments[index][0]]-np.mean(diff), sp_time[segments[index][1]]+np.mean(diff)], title = 'Time (Sec)'), yaxis=dict(visible=True, autorange=False, range=[sp_freq[0], sp_freq[-1]], title='Freq (Hz)'))
         return fig
 
     app.run_server()
