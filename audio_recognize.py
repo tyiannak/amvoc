@@ -8,17 +8,28 @@ Maintainer: Theodoros Giannakopoulos {tyiannak@gmail.com}
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, MeanShift, DBSCAN, AgglomerativeClustering, AffinityPropagation, Birch, MiniBatchKMeans, OPTICS, SpectralClustering,estimate_bandwidth
 from sklearn.svm import SVR
+from sklearn.mixture import GaussianMixture
+from sklearn.metrics import silhouette_samples, silhouette_score, calinski_harabasz_score, davies_bouldin_score
+from sklearn.manifold import TSNE
 import plotly.graph_objs as go
+from sklearn.decomposition import PCA
+import warnings
+from sklearn.exceptions import ConvergenceWarning
+
 
 def util_generate_cluster_graphs(list_contour, cluster_ids):
     clusters = np.unique(cluster_ids)
     cluster_plots = [[] for c in range(len(clusters))]
+    print(list_contour)
     for il, l in enumerate(list_contour):
         t = l[0]
+        print ('t = {}'.format(t))
         y = l[1]
+        print('y = {}'.format(y))
         t = t - np.min(t)
+        print('new t = {}'.format(t))
         if len(cluster_plots[cluster_ids[il]]) == 0:
             cluster_plots[cluster_ids[il]] = ([[t.tolist(), y]])
         else:
@@ -76,6 +87,13 @@ def util_generate_cluster_images(list_of_img, cluster_ids):
 #        plt.imshow(cluster_image)
 #        plt.show()
 
+def metrics(X, y):
+    silhouette_avg = silhouette_score(X, y)
+    ch_score = calinski_harabasz_score(X,y)
+    db_score = davies_bouldin_score(X,y)     
+    return silhouette_avg, ch_score, db_score
+
+
 def cluster_syllables(syllables, specgram, sp_freq,
                       f_low, f_high, win):
     """
@@ -88,18 +106,22 @@ def cluster_syllables(syllables, specgram, sp_freq,
     :param win:
     :return:
     """
-
+    warnings.filterwarnings('ignore', category=ConvergenceWarning) 
     features, countour_points, init_points = [], [], []
     f1 = np.argmin(np.abs(sp_freq - f_low))
     f2 = np.argmin(np.abs(sp_freq - f_high))
+    freqs = [f1,f2]
+    np.save('freqs.npy', freqs)
     images = []
-
+    segments = []
     for syl in syllables:
         # for each detected syllable (vocalization)
 
         # A. get the spectrogram area in the defined frequency range
         start = int(syl[0] / win)
         end = int(syl[1] / win)
+        segments.append([start,end])
+        np.save('segments.npy', segments)
         cur_image = specgram[start:end, f1:f2]
         images.append(cur_image)
 
@@ -119,7 +141,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
             if max_vals[ip] > threshold:
                 point_time.append(ip)
                 point_freq.append(max_pos[ip])
-                
+           
         # B3. train a regression SVM to map time coordinates to frequency values
         svr = SVR(kernel='rbf', C=1e3, gamma=0.1)
         svr = svr.fit(np.array(point_time).reshape(-1, 1), np.array(point_freq))
@@ -186,9 +208,70 @@ def cluster_syllables(syllables, specgram, sp_freq,
     features = np.array(features)
     from sklearn import preprocessing
     features = preprocessing.scale(features)
-    kmeans = KMeans(n_clusters=4)
-    kmeans.fit(features)
-    y_kmeans = kmeans.predict(features)
-
-    return y_kmeans, images, countour_points, \
+    
+    return images, countour_points, \
            init_points, features, feature_names
+
+
+def center_detection(n_clusters, features, y):
+    centroids = [[] for i in range(n_clusters)]
+    for i in range(len(y)):
+        centroids[y[i]].append(features[i].tolist())
+    centers = np.zeros((n_clusters,len(features[0])))
+    for i in range (n_clusters):
+        centers[i, :] = np.mean(np.array(centroids[i]), axis=0)
+    return centers
+
+
+def cluster_help(clusterer, centers, features, n_clusters):
+    y = clusterer.fit_predict(features)
+    #In case of Birch clustering, if threshold is too big for generating n_clusters clusters
+    if len(np.unique(y))< n_clusters:
+        return y,[],[]
+    if centers == 1:
+        centers = clusterer.cluster_centers_
+    else:
+        centers = center_detection(n_clusters, features,y)
+    scores = metrics(features, y)
+    return y, centers, scores
+
+
+def clustering(method, n_clusters, features):
+    if method == 'agg':
+        clusterer =  AgglomerativeClustering(n_clusters=n_clusters)
+        y, centers, scores = cluster_help(clusterer, 0, features, n_clusters)
+    elif method == 'birch':
+        thresholds = np.arange(0.1,2.1,0.2)
+        sil_scores, ch_scores, db_scores = [], [], []
+        #Choosing the best threshold based on metrics results
+        for thres in thresholds:
+            clusterer = Birch(threshold = thres, n_clusters=n_clusters)
+            y, centers, scores = cluster_help(clusterer, 0, features, n_clusters)
+            #Stop checking bigger values of threshold
+            if len(np.unique(y)) < n_clusters:
+                break
+            sil_scores.append(scores[0])
+            ch_scores.append(scores[1])
+            db_scores.append(scores[2])
+
+        sil_ind = np.argsort(np.argsort(sil_scores))
+        ch_ind = np.argsort(np.argsort(ch_scores))
+        db_ind = np.argsort(np.argsort(db_scores))
+        sum = sil_ind + ch_ind- db_ind
+        thres = thresholds[np.argmax(sum)]
+        scores = [sil_scores[np.argmax(sum)], ch_scores[np.argmax(sum)], db_scores[np.argmax(sum)]]
+        clusterer = Birch(threshold = thres, n_clusters = n_clusters)
+        y, centers, _ = cluster_help(clusterer,0, features, n_clusters)
+    elif method == 'gmm':
+        clusterer = GaussianMixture(n_components=n_clusters)
+        y, centers, scores = cluster_help(clusterer, 0, features, n_clusters)
+    elif method == 'kmeans':
+        clusterer = KMeans(n_clusters=n_clusters)
+        y, centers, scores = cluster_help(clusterer, 1, features, n_clusters)
+    elif method == 'mbkmeans':
+        clusterer = MiniBatchKMeans(n_clusters = n_clusters)
+        y, centers, scores = cluster_help(clusterer, 1, features, n_clusters)
+    elif method == 'spec':
+        clusterer = SpectralClustering(n_clusters = n_clusters)
+        y, centers, scores = cluster_help(clusterer, 0, features, n_clusters)
+    return y, centers, scores 
