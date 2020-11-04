@@ -17,75 +17,53 @@ import plotly.graph_objs as go
 from sklearn.decomposition import PCA
 import warnings
 from sklearn.exceptions import ConvergenceWarning
+import torch
+import torch.nn as nn
+from torchvision import transforms
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 
-def util_generate_cluster_graphs(list_contour, cluster_ids):
-    clusters = np.unique(cluster_ids)
-    cluster_plots = [[] for c in range(len(clusters))]
-    print(list_contour)
-    for il, l in enumerate(list_contour):
-        t = l[0]
-        print ('t = {}'.format(t))
-        y = l[1]
-        print('y = {}'.format(y))
-        t = t - np.min(t)
-        print('new t = {}'.format(t))
-        if len(cluster_plots[cluster_ids[il]]) == 0:
-            cluster_plots[cluster_ids[il]] = ([[t.tolist(), y]])
-        else:
-            cluster_plots[cluster_ids[il]].append([t.tolist(), y])
+class ConvAutoencoder(nn.Module):
+    def __init__(self):
+        super(ConvAutoencoder, self).__init__()
+        ## encoder layers ##
+        # conv layer (depth from 3 --> 16), 3x3 kernels
+        self.conv1 = nn.Conv2d(1, 16, (3,3), padding =(1,1))  
+        # conv layer (depth from 16 --> 4), 3x3 kernels
+        self.conv2 = nn.Conv2d(16, 8, (3,3), padding=(1,1))
+        self.conv3 = nn.Conv2d(8, 8, (3,3), padding=(1,1))
+        # pooling layer to reduce x-y dims by two; kernel and stride of 2
+        self.pool1 = nn.MaxPool2d((2,4), 2)
+        self.pool2 = nn.MaxPool2d((2,2), 2)
 
-    scatter_plots = [[] for c in range(len(clusters))]
-    for c in range(len(clusters)):
-        L = len(cluster_plots[c])
-        required = 10
-        perms = np.random.permutation(L)
-        for i in perms[0:required]:
-            x = cluster_plots[c][i][0]
-            y = cluster_plots[c][i][1]
-            scatter_plots[c].append(go.Scatter(x=x, y=y,
-                                               name="F_{0:d}".format(i)))
+        ## decoder layers ##
+        ## a kernel of 2 and a stride of 2 will increase the spatial dims by 2
+        self.t_conv1 = nn.ConvTranspose2d(8, 8, 2, stride=2)
+        self.t_conv2 = nn.ConvTranspose2d(8, 16, 2, stride=2)
+        self.t_conv3 = nn.ConvTranspose2d(16, 1, 2, stride=(2,2))
 
-    return scatter_plots
+    def forward(self, x):
+        ## encode ##
+        # add hidden layers with relu activation function
+        # and maxpooling after
+        x = F.relu(self.conv1(x))
+        x = self.pool2(x)
+        # add second hidden layer
+        x = F.relu(self.conv2(x))
+        x = self.pool2(x)  # compressed representation
+        x = F.relu(self.conv3(x))
+        x=self.pool2(x)
+        if self.training:
+            ## decode ##
+            # add transpose conv layers, with relu activation function
+            x = F.relu(self.t_conv1(x))
+            # # output layer (with sigmoid for scaling from 0 to 1)
+            x = F.relu(self.t_conv2(x))
+            # print(x.shape)
+            x = F.sigmoid(self.t_conv3(x))                
+        return x
 
-
-def util_generate_cluster_images(list_of_img, cluster_ids):
-    clusters = np.unique(cluster_ids)
-    cluster_images = []
-    for c in clusters:
-        cluster_image_width = 500
-        time_total = 0
-        n_freqs = list_of_img[0].shape[1]
-
-        for i, im in enumerate(list_of_img):
-            if cluster_ids[i] == c:
-                time_total += im.shape[0]
-
-        n_rows = int(time_total / cluster_image_width) + 1
-        cluster_image = np.zeros((n_rows * n_freqs, cluster_image_width))
-
-        count_t = 0
-        count_row = 0
-        for i, im in enumerate(list_of_img):
-            if cluster_ids[i] == c:
-                t = im.shape[0]
-                if count_t + t > cluster_image_width:
-                    count_row +=1
-                    count_t = 0
-                # append current spectrogram image to larger map:
-                cluster_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
-                count_t: count_t + t] = im.T
-                # create "grid"
-                cluster_image[count_row * n_freqs, count_t: count_t + t] = 0.1
-                cluster_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
-                count_t] = 0.1
-                cluster_image[count_row * n_freqs: count_row * n_freqs + n_freqs,
-                count_t + t] = 0.1
-                count_t += t
-        cluster_images.append(cluster_image)
-    return(cluster_images)
-#        plt.imshow(cluster_image)
-#        plt.show()
 
 def metrics(X, y):
     silhouette_avg = silhouette_score(X, y)
@@ -111,9 +89,10 @@ def cluster_syllables(syllables, specgram, sp_freq,
     f1 = np.argmin(np.abs(sp_freq - f_low))
     f2 = np.argmin(np.abs(sp_freq - f_high))
     freqs = [f1,f2]
-    np.save('freqs.npy', freqs)
+    # np.save('freqs.npy', freqs)
     images = []
     segments = []
+    max_dur = 0
     for syl in syllables:
         # for each detected syllable (vocalization)
 
@@ -121,10 +100,12 @@ def cluster_syllables(syllables, specgram, sp_freq,
         start = int(syl[0] / win)
         end = int(syl[1] / win)
         segments.append([start,end])
-        np.save('segments.npy', segments)
+        # np.save('segments.npy', segments)
         cur_image = specgram[start:end, f1:f2]
         images.append(cur_image)
-
+        if cur_image.shape[0] > max_dur:
+            max_dur = cur_image.shape[0]
+        
         # B. perform frequency contour detection through SVM regression
 
         # B1. get the positions and values of the maximum frequencies 
@@ -205,48 +186,113 @@ def cluster_syllables(syllables, specgram, sp_freq,
                     "delta2_mean", "delta2_std",
                     "freq_start", "freq_end"]
 
+    '''
+    train_data = []
+    max_dur = ((max_dur + 7) & (-8)) 
+    for i in range(len(images)):
+        train_data.append(np.pad(images[i]/np.amax(cur_image), ((int((max_dur-images[i].shape[0])/2), (max_dur-images[i].shape[0]) - int((max_dur-images[i].shape[0])/2)),(0,0))))
+
+    train_data=np.array(train_data)
+    a = np.array(train_data)
+    train_data = train_data.reshape(train_data.shape[0], 1, train_data.shape[1], train_data.shape[2])
+    train_data  = torch.from_numpy(train_data)
+    # train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size)
+    model = ConvAutoencoder()
+    # specify loss function
+    criterion = nn.BCELoss()
+    # specify loss function
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # number of epochs to train the model
+    n_epochs = 200
+    train_data = torch.autograd.Variable(train_data)
+    model = model.float()
+    train_loss = 10.0
+    epoch = 0
+    # print(train_data)
+    while (train_loss >= 0.001):
+    # train_loss = 0.0
+    # epoch = 0
+    # while(train_loss >= 0):
+        # monitor training loss
+        train_loss = 0.0
+        
+        ###################
+        # train the model #
+        ###################
+        
+        # _ stands in for labels, here
+        model.train()
+        # clear the gradients of all optimized variables
+        optimizer.zero_grad()
+        # forward pass: compute predicted outputs by passing inputs to the model
+        outputs = model(train_data.float())
+        # print(outputs)
+        # print(train_data.float())
+        # calculate the loss
+        loss = criterion(outputs, train_data.float())
+        # backward pass: compute gradient of the loss with respect to model parameters
+        loss.backward()
+        # perform a single optimization step (parameter update)
+        optimizer.step()
+        # update running training loss
+        train_loss = loss.item()
+        epoch+=1
+        # # print avg training statistics 
+        # train_loss = train_loss/len(train_data)
+        print('Epoch: {} \tTraining Loss: {:.6f}'.format(
+            epoch, 
+            train_loss
+            ))
+    print(outputs.shape)
+    fig = plt.figure()
+    fig.add_subplot(1,2,1)
+    plt.imshow(a[1].T)
+    fig.add_subplot(1,2,2)
+    outputs = outputs.detach().numpy()
+    plt.imshow(outputs.reshape(outputs.shape[0], outputs.shape[2],outputs.shape[3])[1].T)
+    plt.show()
+    model.eval()
+    outputs = model(train_data.float())
+    outputs = outputs.detach().numpy()
+    print(outputs.shape)
+    outputs = np.mean(outputs, axis=1)
+    outputs = outputs.reshape(outputs.shape[0], -1)
+    pca = PCA(n_components=0.8)
+    feats = pca.fit_transform(outputs)
+    print(feats[0])
+    # print(outputs.reshape(outputs.shape[0], -1).shape)
+    features = np.array(features)
+    # features = feats
+    # print(features.shape)
+    '''
     features = np.array(features)
     from sklearn import preprocessing
     features = preprocessing.scale(features)
     
     return images, countour_points, \
-           init_points, features, feature_names
+           init_points, features, feature_names, freqs, segments
 
 
-def center_detection(n_clusters, features, y):
-    centroids = [[] for i in range(n_clusters)]
-    for i in range(len(y)):
-        centroids[y[i]].append(features[i].tolist())
-    centers = np.zeros((n_clusters,len(features[0])))
-    for i in range (n_clusters):
-        centers[i, :] = np.mean(np.array(centroids[i]), axis=0)
-    return centers
-
-
-def cluster_help(clusterer, centers, features, n_clusters):
+def cluster_help(clusterer, features, n_clusters):
     y = clusterer.fit_predict(features)
     #In case of Birch clustering, if threshold is too big for generating n_clusters clusters
     if len(np.unique(y))< n_clusters:
-        return y,[],[]
-    if centers == 1:
-        centers = clusterer.cluster_centers_
-    else:
-        centers = center_detection(n_clusters, features,y)
+        return y,[]
     scores = metrics(features, y)
-    return y, centers, scores
+    return y, scores
 
 
 def clustering(method, n_clusters, features):
     if method == 'agg':
         clusterer =  AgglomerativeClustering(n_clusters=n_clusters)
-        y, centers, scores = cluster_help(clusterer, 0, features, n_clusters)
+        y, scores = cluster_help(clusterer, features, n_clusters)
     elif method == 'birch':
         thresholds = np.arange(0.1,2.1,0.2)
         sil_scores, ch_scores, db_scores = [], [], []
         #Choosing the best threshold based on metrics results
         for thres in thresholds:
             clusterer = Birch(threshold = thres, n_clusters=n_clusters)
-            y, centers, scores = cluster_help(clusterer, 0, features, n_clusters)
+            y, scores = cluster_help(clusterer,features, n_clusters)
             #Stop checking bigger values of threshold
             if len(np.unique(y)) < n_clusters:
                 break
@@ -261,17 +307,18 @@ def clustering(method, n_clusters, features):
         thres = thresholds[np.argmax(sum)]
         scores = [sil_scores[np.argmax(sum)], ch_scores[np.argmax(sum)], db_scores[np.argmax(sum)]]
         clusterer = Birch(threshold = thres, n_clusters = n_clusters)
-        y, centers, _ = cluster_help(clusterer,0, features, n_clusters)
+        y, scores = cluster_help(clusterer,features, n_clusters)
     elif method == 'gmm':
         clusterer = GaussianMixture(n_components=n_clusters)
-        y, centers, scores = cluster_help(clusterer, 0, features, n_clusters)
+        y, scores = cluster_help(clusterer,features, n_clusters)
     elif method == 'kmeans':
         clusterer = KMeans(n_clusters=n_clusters)
-        y, centers, scores = cluster_help(clusterer, 1, features, n_clusters)
+        y, scores = cluster_help(clusterer, features, n_clusters)
     elif method == 'mbkmeans':
         clusterer = MiniBatchKMeans(n_clusters = n_clusters)
-        y, centers, scores = cluster_help(clusterer, 1, features, n_clusters)
+        y, scores = cluster_help(clusterer, features, n_clusters)
     elif method == 'spec':
         clusterer = SpectralClustering(n_clusters = n_clusters)
-        y, centers, scores = cluster_help(clusterer, 0, features, n_clusters)
-    return y, centers, scores 
+        y, scores = cluster_help(clusterer, features, n_clusters)
+
+    return y, scores 
