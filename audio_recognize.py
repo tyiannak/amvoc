@@ -13,56 +13,19 @@ from sklearn.svm import SVR
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_samples, silhouette_score, calinski_harabasz_score, davies_bouldin_score
 from sklearn.manifold import TSNE
+from sklearn.feature_selection import VarianceThreshold
 import plotly.graph_objs as go
 from sklearn.decomposition import PCA
 import warnings
 from sklearn.exceptions import ConvergenceWarning
 import torch
 import torch.nn as nn
+from helper import ConvAutoencoder
 from torchvision import transforms
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+from torch.utils.data import TensorDataset, DataLoader
 
-
-class ConvAutoencoder(nn.Module):
-    def __init__(self):
-        super(ConvAutoencoder, self).__init__()
-        ## encoder layers ##
-        # conv layer (depth from 3 --> 16), 3x3 kernels
-        self.conv1 = nn.Conv2d(1, 16, (3,3), padding =(1,1))  
-        # conv layer (depth from 16 --> 4), 3x3 kernels
-        self.conv2 = nn.Conv2d(16, 8, (3,3), padding=(1,1))
-        self.conv3 = nn.Conv2d(8, 8, (3,3), padding=(1,1))
-        # pooling layer to reduce x-y dims by two; kernel and stride of 2
-        self.pool1 = nn.MaxPool2d((2,4), 2)
-        self.pool2 = nn.MaxPool2d((2,2), 2)
-
-        ## decoder layers ##
-        ## a kernel of 2 and a stride of 2 will increase the spatial dims by 2
-        self.t_conv1 = nn.ConvTranspose2d(8, 8, 2, stride=2)
-        self.t_conv2 = nn.ConvTranspose2d(8, 16, 2, stride=2)
-        self.t_conv3 = nn.ConvTranspose2d(16, 1, 2, stride=(2,2))
-
-    def forward(self, x):
-        ## encode ##
-        # add hidden layers with relu activation function
-        # and maxpooling after
-        x = F.relu(self.conv1(x))
-        x = self.pool2(x)
-        # add second hidden layer
-        x = F.relu(self.conv2(x))
-        x = self.pool2(x)  # compressed representation
-        x = F.relu(self.conv3(x))
-        x=self.pool2(x)
-        if self.training:
-            ## decode ##
-            # add transpose conv layers, with relu activation function
-            x = F.relu(self.t_conv1(x))
-            # # output layer (with sigmoid for scaling from 0 to 1)
-            x = F.relu(self.t_conv2(x))
-            # print(x.shape)
-            x = F.sigmoid(self.t_conv3(x))                
-        return x
 
 
 def metrics(X, y):
@@ -73,7 +36,7 @@ def metrics(X, y):
 
 
 def cluster_syllables(syllables, specgram, sp_freq,
-                      f_low, f_high, win):
+                      f_low, f_high, win, train = False):
     """
     TODO
     :param syllables:
@@ -93,6 +56,8 @@ def cluster_syllables(syllables, specgram, sp_freq,
     images = []
     segments = []
     max_dur = 0
+    # i=0
+    test = []
     for syl in syllables:
         # for each detected syllable (vocalization)
 
@@ -105,9 +70,19 @@ def cluster_syllables(syllables, specgram, sp_freq,
         images.append(cur_image)
         if cur_image.shape[0] > max_dur:
             max_dur = cur_image.shape[0]
+        if train:
+        #     test.append([np.mean(cur_image/np.amax(cur_image)),np.var(cur_image), np.mean(cur_image-np.amax(cur_image))])
+            continue
+        # if i<50:
+        #     print(np.mean(cur_image-np.amax(cur_image)))
         
+        # # variance.append(np.var(cur_image))
+            # fig = plt.figure()
+            # plt.imshow(cur_image)
+            # plt.show()
+        # test.append([np.mean(cur_image/np.amax(cur_image)),np.var(cur_image), np.mean(cur_image-np.amax(cur_image))])
         # B. perform frequency contour detection through SVM regression
-
+        # i+=1
         # B1. get the positions and values of the maximum frequencies 
         # per time window:
         max_pos = np.argmax(cur_image, axis=1)
@@ -138,7 +113,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
 
         init_points.append([points_t_init, points_f_init])
         countour_points.append([points_t, points_f])
-
+        # print("Length:{}".format(len(points_t)))
         # C. Extract features based on the frequency contour
         delta = np.diff(points_f)
         delta_2 = np.diff(delta)
@@ -156,7 +131,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
         freq_end = points_f[-1]
         pos_min_freq = (points_t[np.argmin(points_f)] - points_t[0]) / duration
         pos_max_freq = (points_t[np.argmax(points_f)] - points_t[0]) / duration
-
+        
         feature_mode = 2
         if feature_mode == 1:
             cur_features = [duration,
@@ -178,6 +153,26 @@ def cluster_syllables(syllables, specgram, sp_freq,
             cur_features = cur_features[0:desired - 10].tolist()
 
         features.append(cur_features)
+    if train:
+        # clusterer = KMeans(n_clusters=2)
+        # y = clusterer.fit_predict(test)
+        # im = np.array(images)
+        # im1 = im[y==0]
+        # # print(im1.shape)
+        # im2 = im[y==1]
+        # # print(im2.shape)
+        # if np.var(im1[0])< np.var(im2[0]):
+        #     im = im2
+        # else:
+        #     im= im1
+        # return list(im)
+        return images
+    
+    # for image in images:
+    #     plt.figure()
+    #     plt.imshow(image)
+    #     plt.show()
+            
 
     feature_names = ["duration",
                     "min_freq", "max_freq", "mean_freq",
@@ -186,90 +181,64 @@ def cluster_syllables(syllables, specgram, sp_freq,
                     "delta2_mean", "delta2_std",
                     "freq_start", "freq_end"]
 
-    '''
-    train_data = []
+    init_images = np.array(images)
+    # images = []
     max_dur = ((max_dur + 7) & (-8)) 
+    print(max_dur)
+    time_limit = max_dur
     for i in range(len(images)):
-        train_data.append(np.pad(images[i]/np.amax(cur_image), ((int((max_dur-images[i].shape[0])/2), (max_dur-images[i].shape[0]) - int((max_dur-images[i].shape[0])/2)),(0,0))))
-
-    train_data=np.array(train_data)
-    a = np.array(train_data)
-    train_data = train_data.reshape(train_data.shape[0], 1, train_data.shape[1], train_data.shape[2])
-    train_data  = torch.from_numpy(train_data)
-    # train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size)
-    model = ConvAutoencoder()
-    # specify loss function
-    criterion = nn.BCELoss()
-    # specify loss function
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    # number of epochs to train the model
-    n_epochs = 200
-    train_data = torch.autograd.Variable(train_data)
-    model = model.float()
-    train_loss = 10.0
-    epoch = 0
-    # print(train_data)
-    while (train_loss >= 0.001):
-    # train_loss = 0.0
-    # epoch = 0
-    # while(train_loss >= 0):
-        # monitor training loss
-        train_loss = 0.0
-        
-        ###################
-        # train the model #
-        ###################
-        
-        # _ stands in for labels, here
-        model.train()
-        # clear the gradients of all optimized variables
-        optimizer.zero_grad()
-        # forward pass: compute predicted outputs by passing inputs to the model
-        outputs = model(train_data.float())
-        # print(outputs)
-        # print(train_data.float())
-        # calculate the loss
-        loss = criterion(outputs, train_data.float())
-        # backward pass: compute gradient of the loss with respect to model parameters
-        loss.backward()
-        # perform a single optimization step (parameter update)
-        optimizer.step()
-        # update running training loss
-        train_loss = loss.item()
-        epoch+=1
-        # # print avg training statistics 
-        # train_loss = train_loss/len(train_data)
-        print('Epoch: {} \tTraining Loss: {:.6f}'.format(
-            epoch, 
-            train_loss
-            ))
-    print(outputs.shape)
-    fig = plt.figure()
-    fig.add_subplot(1,2,1)
-    plt.imshow(a[1].T)
-    fig.add_subplot(1,2,2)
-    outputs = outputs.detach().numpy()
-    plt.imshow(outputs.reshape(outputs.shape[0], outputs.shape[2],outputs.shape[3])[1].T)
-    plt.show()
+        if len(images[i])>time_limit:
+            images[i] = images[i][int((len(images[i])-time_limit)/2):int((len(images[i])-time_limit)/2)+time_limit,:]/np.amax(images[i])
+        elif len(images[i])<time_limit:
+            images[i] = np.pad(images[i]/np.amax(images[i]), ((int((time_limit-images[i].shape[0])/2), (time_limit-images[i].shape[0]) - int((time_limit-images[i].shape[0])/2)),(0,0)))
+        else:
+            images[i] = images[i]/np.amax(images[i])
+    specs = np.array(images)
+    specs = specs.reshape(specs.shape[0], 1, specs.shape[1], specs.shape[2])
+    model = torch.load('./model_1')
+    dataset = TensorDataset(torch.tensor(specs, dtype = torch.float))
+    # specs  = torch.from_numpy(specs)
+    batch_size = 1
+    test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle = False)
+    outputs = []
     model.eval()
-    outputs = model(train_data.float())
-    outputs = outputs.detach().numpy()
-    print(outputs.shape)
-    outputs = np.mean(outputs, axis=1)
-    outputs = outputs.reshape(outputs.shape[0], -1)
-    pca = PCA(n_components=0.8)
+    with torch.no_grad():
+        for data in test_loader:
+            # print(data[0])
+            outputs += model(data[0])
+
+    # outputs = model(images.float())
+    # outputs = outputs.detach().numpy()
+    for i in range(len(outputs)):
+        outputs[i] = outputs[i].detach().numpy().flatten()
+
+    outputs=np.array(outputs)
+    # print(outputs.shape)
+    # print(np.var(outputs, axis = 0))
+    # print(max(np.var(outputs, axis = 0)))
+    selector = VarianceThreshold(threshold=0.2)
+    outputs = selector.fit_transform(outputs)
+    # from sklearn import preprocessing
+    from sklearn.preprocessing import MinMaxScaler
+    # features = preprocessing.scale(features)
+    features = MinMaxScaler().fit_transform(features)
+
+    # outputs = np.mean(outputs, axis=1)
+    # outputs = outputs.reshape(outputs.shape[0], -1)
+    # print(outputs.shape)
+    pca = PCA(n_components=10)
     feats = pca.fit_transform(outputs)
+    feats = outputs
     print(feats[0])
     # print(outputs.reshape(outputs.shape[0], -1).shape)
     features = np.array(features)
     # features = feats
     # print(features.shape)
-    '''
-    features = np.array(features)
-    from sklearn import preprocessing
-    features = preprocessing.scale(features)
     
-    return images, countour_points, \
+    # features = np.array(features)
+    
+    
+    return list(init_images), countour_points, \
            init_points, features, feature_names, freqs, segments
 
 
