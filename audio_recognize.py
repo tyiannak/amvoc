@@ -20,13 +20,13 @@ import warnings
 from sklearn.exceptions import ConvergenceWarning
 import torch
 import torch.nn as nn
-from helper import ConvAutoencoder
 from torchvision import transforms
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from torch.utils.data import TensorDataset, DataLoader
-
-
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
+from PIL import Image
+import statistics
 
 def metrics(X, y):
     silhouette_avg = silhouette_score(X, y)
@@ -48,41 +48,42 @@ def cluster_syllables(syllables, specgram, sp_freq,
     :return:
     """
     warnings.filterwarnings('ignore', category=ConvergenceWarning) 
-    features, countour_points, init_points = [], [], []
+    features_s, countour_points, init_points = [], [], []
     f1 = np.argmin(np.abs(sp_freq - f_low))
     f2 = np.argmin(np.abs(sp_freq - f_high))
     freqs = [f1,f2]
-    # np.save('freqs.npy', freqs)
     images = []
     segments = []
     max_dur = 0
-    # i=0
     test = []
+    syllables_final = []
+    high_thres = 0.015
+    low_thres = 0.006
     for syl in syllables:
         # for each detected syllable (vocalization)
 
         # A. get the spectrogram area in the defined frequency range
         start = int(syl[0] / win)
         end = int(syl[1] / win)
-        segments.append([start,end])
+        
         # np.save('segments.npy', segments)
         cur_image = specgram[start:end, f1:f2]
+        if cur_image.shape[0]==0 or cur_image.shape[1]==0:
+            continue
+        temp_image = cur_image/np.amax(cur_image)
+        if train:
+            images.append(cur_image)
+            continue
+
+        if abs((np.var(temp_image)) - low_thres) >= abs(high_thres - np.var(temp_image)):
+            continue
         images.append(cur_image)
+        segments.append([start,end])
+        syllables_final.append(syl)
         if cur_image.shape[0] > max_dur:
             max_dur = cur_image.shape[0]
-        if train:
-        #     test.append([np.mean(cur_image/np.amax(cur_image)),np.var(cur_image), np.mean(cur_image-np.amax(cur_image))])
-            continue
-        # if i<50:
-        #     print(np.mean(cur_image-np.amax(cur_image)))
-        
-        # # variance.append(np.var(cur_image))
-            # fig = plt.figure()
-            # plt.imshow(cur_image)
-            # plt.show()
-        # test.append([np.mean(cur_image/np.amax(cur_image)),np.var(cur_image), np.mean(cur_image-np.amax(cur_image))])
         # B. perform frequency contour detection through SVM regression
-        # i+=1
+
         # B1. get the positions and values of the maximum frequencies 
         # per time window:
         max_pos = np.argmax(cur_image, axis=1)
@@ -113,7 +114,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
 
         init_points.append([points_t_init, points_f_init])
         countour_points.append([points_t, points_f])
-        # print("Length:{}".format(len(points_t)))
+
         # C. Extract features based on the frequency contour
         delta = np.diff(points_f)
         delta_2 = np.diff(delta)
@@ -134,8 +135,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
         
         feature_mode = 2
         if feature_mode == 1:
-            cur_features = [duration,
-                            min_freq, max_freq, mean_freq,
+            cur_features = [duration, min_freq, max_freq, mean_freq,
                             max_freq_change, min_freq_change,
                             delta_mean, delta_std,
                             delta2_mean, delta2_std,
@@ -152,27 +152,10 @@ def cluster_syllables(syllables, specgram, sp_freq,
             cur_features = scipy.signal.resample_poly(points_f, up=ratio, down=100)
             cur_features = cur_features[0:desired - 10].tolist()
 
-        features.append(cur_features)
+        features_s.append(cur_features)
     if train:
-        # clusterer = KMeans(n_clusters=2)
-        # y = clusterer.fit_predict(test)
-        # im = np.array(images)
-        # im1 = im[y==0]
-        # # print(im1.shape)
-        # im2 = im[y==1]
-        # # print(im2.shape)
-        # if np.var(im1[0])< np.var(im2[0]):
-        #     im = im2
-        # else:
-        #     im= im1
-        # return list(im)
         return images
-    
-    # for image in images:
-    #     plt.figure()
-    #     plt.imshow(image)
-    #     plt.show()
-            
+    features_s = MinMaxScaler().fit_transform(features_s)  
 
     feature_names = ["duration",
                     "min_freq", "max_freq", "mean_freq",
@@ -181,11 +164,28 @@ def cluster_syllables(syllables, specgram, sp_freq,
                     "delta2_mean", "delta2_std",
                     "freq_start", "freq_end"]
 
-    init_images = np.array(images)
-    # images = []
-    max_dur = ((max_dur + 7) & (-8)) 
-    print(max_dur)
+    init_images = np.array(images, dtype = object)
+
+    duration = []
+    for image in images:
+        duration.append(image.shape[0])
+    # print(duration)
+    # plt.hist(duration, bins = range(min(duration), 100))
+    # plt.show()
+    # hist = np.histogram(duration)
+    # print(hist)
+    # if max_dur> 64:
+        # time_limit = 64
+    # else:
+    max_dur = ((int(1.5*np.mean(duration))+ 7) & (-8)) 
     time_limit = max_dur
+    # transformations = transforms.Compose([
+    # transforms.Resize([160,max_dur], 5)])
+    # for i in range(len(images)):
+    #     images[i] = Image.fromarray(images[i].T)
+    #     images[i] = pad_repeat(images[i], max_dur)
+    #     images[i] = np.array(images[i]).T
+
     for i in range(len(images)):
         if len(images[i])>time_limit:
             images[i] = images[i][int((len(images[i])-time_limit)/2):int((len(images[i])-time_limit)/2)+time_limit,:]/np.amax(images[i])
@@ -193,53 +193,70 @@ def cluster_syllables(syllables, specgram, sp_freq,
             images[i] = np.pad(images[i]/np.amax(images[i]), ((int((time_limit-images[i].shape[0])/2), (time_limit-images[i].shape[0]) - int((time_limit-images[i].shape[0])/2)),(0,0)))
         else:
             images[i] = images[i]/np.amax(images[i])
+    # for i in range(len(images)):
+    #     images[i] = images[i]/np.amax(images[i])
+    
     specs = np.array(images)
     specs = specs.reshape(specs.shape[0], 1, specs.shape[1], specs.shape[2])
-    model = torch.load('./model_1')
+    model = torch.load('./model_2')
+
     dataset = TensorDataset(torch.tensor(specs, dtype = torch.float))
-    # specs  = torch.from_numpy(specs)
     batch_size = 1
     test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle = False)
     outputs = []
     model.eval()
     with torch.no_grad():
         for data in test_loader:
-            # print(data[0])
             outputs += model(data[0])
 
-    # outputs = model(images.float())
-    # outputs = outputs.detach().numpy()
     for i in range(len(outputs)):
         outputs[i] = outputs[i].detach().numpy().flatten()
 
     outputs=np.array(outputs)
-    # print(outputs.shape)
-    # print(np.var(outputs, axis = 0))
-    # print(max(np.var(outputs, axis = 0)))
-    selector = VarianceThreshold(threshold=0.2)
-    outputs = selector.fit_transform(outputs)
-    # from sklearn import preprocessing
-    from sklearn.preprocessing import MinMaxScaler
-    # features = preprocessing.scale(features)
-    features = MinMaxScaler().fit_transform(features)
+    features = outputs
+    # feats = MinMaxScaler().fit_transform(features)
+    ## hist = np.histogram(np.var(features, axis = 0))
+    # corr = np.mean(np.abs(np.nan_to_num(np.corrcoef(feats,rowvar=False))), axis = 0)
+    # hist_cor = np.histogram(corr)
+    # var = np.mean(np.var(feats, axis = 0))
+    # hist_var = np.histogram(var)
+    # indices = np.intersect1d(np.where(corr>hist_cor[1][-2]), np.where(var<hist_var[1][1]))
+    # features = np.delete(features, indices, axis = 1)
+    # features = StandardScaler().fit_transform(features)
+    # print(statistics.median(np.var(features, axis = 0)))
+    # print(np.mean(np.var(features, axis = 0)))
+    # print(np.where(np.var(features,axis=0) < np.mean(np.var(features, axis=0))))
+    selector = VarianceThreshold(threshold=(0.8*np.mean(np.var(features, axis = 0))))
+    # selector = VarianceThreshold(threshold=(hist[1][np.argmax(hist[0])+1]))
+    # plt.hist(np.var(features, axis = 0))
+    # plt.show()
+    features = selector.fit_transform(features)
+    features = StandardScaler().fit_transform(features)
 
-    # outputs = np.mean(outputs, axis=1)
-    # outputs = outputs.reshape(outputs.shape[0], -1)
-    # print(outputs.shape)
-    pca = PCA(n_components=10)
-    feats = pca.fit_transform(outputs)
-    feats = outputs
-    print(feats[0])
-    # print(outputs.reshape(outputs.shape[0], -1).shape)
-    features = np.array(features)
-    # features = feats
-    # print(features.shape)
-    
-    # features = np.array(features)
-    
+    test = min(100,features.shape[0])
+    n_comp = 0
+    while (1):
+        pca = PCA(n_components=test)
+        pca.fit(features)
+        evar = pca.explained_variance_ratio_
+        cum_evar = np.cumsum(evar)
+        n_comp = np.where(cum_evar >= 0.95)
+        if not n_comp:
+            test = test + 50
+        else:
+            n_comp = n_comp[0][0] + 1
+            break
+    pca = PCA(n_components=n_comp)
+    features = pca.fit_transform(features)
+    # plt.figure()
+    # plt.xlabel("Principal Component number")
+    # plt.ylabel('Cumulative Variance')
+    # plt.plot(cum_evar, linewidth=2)
+    # plt.show()
+    features_d = features
     
     return list(init_images), countour_points, \
-           init_points, features, feature_names, freqs, segments
+           init_points, [features_s, features_d], feature_names, freqs, segments, syllables_final
 
 
 def cluster_help(clusterer, features, n_clusters):
