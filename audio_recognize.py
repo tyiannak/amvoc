@@ -177,8 +177,8 @@ def cluster_syllables(syllables, specgram, sp_freq,
     # if max_dur> 64:
         # time_limit = 64
     # else:
-    max_dur = ((int(1.5*np.mean(duration))+ 7) & (-8)) 
-    time_limit = max_dur
+    # max_dur = ((int(1.5*np.mean(duration))+ 7) & (-8)) 
+    time_limit = 64
     # transformations = transforms.Compose([
     # transforms.Resize([160,max_dur], 5)])
     # for i in range(len(images)):
@@ -201,7 +201,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
     model = torch.load('./model_2')
 
     dataset = TensorDataset(torch.tensor(specs, dtype = torch.float))
-    batch_size = 1
+    batch_size = 32
     test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle = False)
     outputs = []
     model.eval()
@@ -226,13 +226,13 @@ def cluster_syllables(syllables, specgram, sp_freq,
     # print(statistics.median(np.var(features, axis = 0)))
     # print(np.mean(np.var(features, axis = 0)))
     # print(np.where(np.var(features,axis=0) < np.mean(np.var(features, axis=0))))
-    selector = VarianceThreshold(threshold=(0.8*np.mean(np.var(features, axis = 0))))
+    selector = VarianceThreshold(threshold=(0.5*np.mean(np.var(features, axis = 0))))
     # selector = VarianceThreshold(threshold=(hist[1][np.argmax(hist[0])+1]))
     # plt.hist(np.var(features, axis = 0))
     # plt.show()
     features = selector.fit_transform(features)
     features = StandardScaler().fit_transform(features)
-
+    
     test = min(100,features.shape[0])
     n_comp = 0
     while (1):
@@ -246,6 +246,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
         else:
             n_comp = n_comp[0][0] + 1
             break
+    print(n_comp)
     pca = PCA(n_components=n_comp)
     features = pca.fit_transform(features)
     # plt.figure()
