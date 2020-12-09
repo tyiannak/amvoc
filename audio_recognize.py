@@ -198,7 +198,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
     
     specs = np.array(images)
     specs = specs.reshape(specs.shape[0], 1, specs.shape[1], specs.shape[2])
-    model = torch.load('./model_2')
+    model = torch.load('./model_test')
 
     dataset = TensorDataset(torch.tensor(specs, dtype = torch.float))
     batch_size = 32
@@ -226,7 +226,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
     # print(statistics.median(np.var(features, axis = 0)))
     # print(np.mean(np.var(features, axis = 0)))
     # print(np.where(np.var(features,axis=0) < np.mean(np.var(features, axis=0))))
-    selector = VarianceThreshold(threshold=(0.5*np.mean(np.var(features, axis = 0))))
+    selector = VarianceThreshold(threshold=(1*np.mean(np.var(features, axis = 0))))
     # selector = VarianceThreshold(threshold=(hist[1][np.argmax(hist[0])+1]))
     # plt.hist(np.var(features, axis = 0))
     # plt.show()
@@ -246,7 +246,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
         else:
             n_comp = n_comp[0][0] + 1
             break
-    print(n_comp)
+    # print(n_comp)
     pca = PCA(n_components=n_comp)
     features = pca.fit_transform(features)
     # plt.figure()
@@ -296,16 +296,16 @@ def clustering(method, n_clusters, features):
         clusterer = Birch(threshold = thres, n_clusters = n_clusters)
         y, scores = cluster_help(clusterer,features, n_clusters)
     elif method == 'gmm':
-        clusterer = GaussianMixture(n_components=n_clusters)
+        clusterer = GaussianMixture(n_components=n_clusters, random_state=9)
         y, scores = cluster_help(clusterer,features, n_clusters)
     elif method == 'kmeans':
-        clusterer = KMeans(n_clusters=n_clusters)
+        clusterer = KMeans(n_clusters=n_clusters, random_state=9)
         y, scores = cluster_help(clusterer, features, n_clusters)
     elif method == 'mbkmeans':
-        clusterer = MiniBatchKMeans(n_clusters = n_clusters)
+        clusterer = MiniBatchKMeans(n_clusters = n_clusters, random_state=9)
         y, scores = cluster_help(clusterer, features, n_clusters)
     elif method == 'spec':
-        clusterer = SpectralClustering(n_clusters = n_clusters)
+        clusterer = SpectralClustering(n_clusters = n_clusters, random_state=9)
         y, scores = cluster_help(clusterer, features, n_clusters)
 
     return y, scores 

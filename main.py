@@ -22,7 +22,15 @@ from sklearn.manifold import TSNE
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import json
+# import jsbeautifier
+# import plotly.express as px
+# from plotly.offline import plot
+# import warnings
+# warnings.filterwarnings("ignore")
 
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
@@ -88,6 +96,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Amvoc")
     parser.add_argument("-i", "--input_file", required=True, nargs=None,
                         help="File")
+    parser.add_argument("-s", "--spectrogram", required=True, nargs=None,
+                        help="Condition")
     return parser.parse_args()
 
 
@@ -103,7 +113,7 @@ def get_shapes(segments, freq1, freq2):
     return shapes1
 
 
-def get_layout():
+def get_layout(spec):
 
     global list_contour, segments, images, f1, f2, feats_simple, feats_deep, feats_2d_s, feats_2d_d, seg_limits, syllables
     seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
@@ -169,118 +179,302 @@ def get_layout():
     syllables = [{"st": s[0], "et": s[1]}
                  for iS, s in enumerate(seg_limits)]
 
+    # with open('annotations.json', 'w') as outfile:
+    #     json.dump([''], outfile)
     shapes1 = get_shapes(seg_limits, f_low, f_high)
-    layout = dbc.Container([
-        # Title
-         dbc.Row(dbc.Col(html.H2("AMVOC", style={'textAlign': 'center',
-                                        'color': colors['text'], 'marginBottom': 30, 'marginTop':30}))),
+    if spec:
+        layout = dbc.Container([
+            # Title
+            dbc.Row(dbc.Col(html.H2("AMVOC", style={'textAlign': 'center',
+                                            'color': colors['text'], 'marginBottom': 30, 'marginTop':30}))),
 
-        # # Selected segment controls
-        # dbc.Row(
-        #     [
-        #         dbc.Col(
-        #             html.Label(id="label_sel_start", children="Selected start",
-        #                        style={'textAlign': 'center',
-        #                                'color': colors['text']}),
-        #             width=1,
-        #         ),
-        #         dbc.Col
-        #             (
-        #             html.Label(id="label_sel_end", children="Selected end",
-        #                        style={'textAlign': 'center',
-        #                               'color': colors['text']}),
-        #             width=1,
-        #         ),
-        #         dbc.Col(
-        #             html.Label(
-        #                 id='label_class',
-        #                 children="Class",
-        #                        style={'textAlign': 'center',
-        #                                'color': colors['text']}
-        #             ),
-        #             width=1,
-        #         )
-        #     ], className="h-5"),
+            # Selected segment controls
+            dbc.Row(
+                [
+                    dbc.Col(
+                        html.Label(id="label_sel_start", children="Selected start",
+                                style={'textAlign': 'center',
+                                        'color': colors['text']}),
+                        width=1,
+                    ),
+                    dbc.Col
+                        (
+                        html.Label(id="label_sel_end", children="Selected end",
+                                style={'textAlign': 'center',
+                                        'color': colors['text']}),
+                        width=1,
+                    ),
+                    dbc.Col(
+                        html.Label(
+                            id='label_class',
+                            children="Class",
+                                style={'textAlign': 'center',
+                                        'color': colors['text']}
+                        ),
+                        width=1,
+                    )
+                ], className="h-5"),
 
-        # # Main heatmap
-        # dbc.Row(dbc.Col(
-        #     dcc.Graph(
-        #         id='heatmap1',
-        #         figure={
-        #             'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
-        #                                 y=sp_freq[::spec_resize_ratio_freq],
-        #                                 z=clean_spectrogram[::spec_resize_ratio_time,
-        #                                   ::spec_resize_ratio_freq].T,
-        #                                 name='F', colorscale='Jet',
-        #                                 showscale=False)],
-        #             'layout': go.Layout(
-        #                 title = 'Spectrogram of the signal',
-        #                 margin=dict(l=55, r=20, b=120, t=40, pad=4),
-        #                 xaxis=dict(title='Time (Sec)'),
-        #                 yaxis=dict(title='Freq (Hz)'),
-        #                 shapes=shapes1 + shapes2 + shapes3)
-        #         }), width=12,
-        #     style={"height": "100%", "background-color": "white"}),
-        #     className="h-50",
-        # ),
-        dbc.Row([dbc.Col(
-                dcc.Dropdown(
-                    id='dropdown_cluster',
-                    options=[
-                        {'label': 'Agglomerative', 'value': 'agg'},
-                        {'label': 'Birch', 'value': 'birch'},
-                        {'label': 'Gaussian Mixture', 'value': 'gmm'},
-                        {'label': 'K-Means', 'value': 'kmeans'},
-                        {'label': 'Mini-Batch K-Means', 'value': 'mbkmeans'},
-                        {'label': 'Spectral', 'value': 'spec'},
-                    ], value='agg'
+            # Main heatmap
+            dbc.Row(dbc.Col(
+                dcc.Graph(
+                    id='heatmap1',
+                    figure={
+                        'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
+                                            y=sp_freq[::spec_resize_ratio_freq],
+                                            z=clean_spectrogram[::spec_resize_ratio_time,
+                                            ::spec_resize_ratio_freq].T,
+                                            name='F', colorscale='Jet',
+                                            showscale=False)],
+                        'layout': go.Layout(
+                            title = 'Spectrogram of the signal',
+                            margin=dict(l=55, r=20, b=120, t=40, pad=4),
+                            xaxis=dict(title='Time (Sec)'),
+                            yaxis=dict(title='Freq (Hz)'),
+                            shapes=shapes1 + shapes2 + shapes3)
+                    }), width=12,
+                style={"height": "100%", "background-color": "white"}),
+                className="h-50",
+            ),
+            dbc.Row([dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_cluster',
+                        options=[
+                            {'label': 'Agglomerative', 'value': 'agg'},
+                            {'label': 'Birch', 'value': 'birch'},
+                            {'label': 'Gaussian Mixture', 'value': 'gmm'},
+                            {'label': 'K-Means', 'value': 'kmeans'},
+                            {'label': 'Mini-Batch K-Means', 'value': 'mbkmeans'},
+                            {'label': 'Spectral', 'value': 'spec'},
+                        ], value='agg'
+                    ),
+                    width=2,
                 ),
-                width=2,
+                dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_n_clusters',
+                        options=[{'label': i, 'value': i} for i in range(2,11)
+                        ], value=2
+                    ),
+                    width=2,
+                ),
+                dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_feats_type',
+                        options=[
+                            {'label': 'Simple', 'value': 'simple'},
+                            {'label': 'Deep', 'value': 'deep'},
+                        ], value='simple'
+                    ),
+                    width=2,
+                ),
+                html.Table([
+                html.Tr([html.Td(['Silhouette score']), html.Td(id='silhouette')]),
+                html.Tr([html.Td(['Calinski-Harabasz score']), html.Td(id='cal-har')]),
+                html.Tr([html.Td(['Davies-Bouldin score']), html.Td(id='dav-bould')]),
+            ]),
+            ]),
+            dbc.Row([dbc.Col(html.Div(children = "Total cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
+                    dbc.Col(html.Div(children = "Specific cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
+                    dbc.Col(html.Div(children = "Point annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
+            ]),
+            dbc.Row([
+            dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_total_cluster_annotation',
+                        options=[
+                            {'label': 'No Validation', 'value': 'no'}]+
+                            [{'label': i, 'value': i} for i in np.arange(10,110,10)], value = 'no'
+                    ),
+                    width=2,
+                    style={'display': 'block'}
+                ),
+            dbc.Col(     
+                html.Button('Submit', id='btn_3', n_clicks=0),  
+                    width=1,
+                    style={'display': 'block'}
+            ),
+            
+            dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_cluster_annotation',
+                        options=[
+                            {'label': 'No Validation', 'value': 'no'}]+
+                            [{'label': i, 'value': i} for i in np.arange(10,110,10)], value = 'no'
+                    ),
+                    width=2,
+                    style={'display': 'block'}
+                ),
+            dbc.Col(     
+                html.Button('Submit', id='btn_2', n_clicks=0),  
+                    width=1,
+                    style={'display': 'block'}
             ),
             dbc.Col(
-                dcc.Dropdown(
-                    id='dropdown_n_clusters',
-                    options=[{'label': i, 'value': i} for i in range(2,11)
-                    ], value=2
+                    dcc.Dropdown(
+                        id='dropdown_point_annotation',
+                        options=[
+                            {'label': 'No Validation', 'value': 'no'},
+                            {'label': 'Approve', 'value': 'approve'},
+                            {'label': 'Reject', 'value': 'reject'},
+                        ], value = 'no'
+                    ),
+                    width=2,
+                    style={'display': 'block'}
                 ),
-                width=2,
+            dbc.Col(     
+                html.Button('Submit', id='btn_1', n_clicks=0),  
+                    width=1,
+                    style={'display': 'block'}
+            ),
+            ]),
+            dbc.Row(dbc.Col(
+                dcc.Graph(id='cluster_graph')
+            )),
+            dbc.Row([dbc.Col(
+            dcc.Graph(id='spectrogram', hoverData = {'points': [{'pointIndex': 0}]}),width = 6
+            
+            ), 
+            dbc.Col(
+                dcc.Graph(id='contour_plot', hoverData = {'points': [{'pointIndex': 0}]}), width = 6
+            )]),
+            # these are intermediate values to be used for sharing content
+            # between callbacks
+            # (see here https://dash.plotly.com/sharing-data-between-callbacks)
+            dbc.Row(id='intermediate_val_syllables', style={'display': 'none'}),
+            dbc.Row(id='intermediate_val_total_clusters', style={'display': 'none'}),
+            dbc.Row(id='intermediate_val_clusters', style={'display': 'none'}),
+            dbc.Row(id='clustering_info',
+                     style={'display': 'none'})
+        ], style={"height": "100vh"})
+    else:
+        layout = dbc.Container([
+            # Title
+            dbc.Row(dbc.Col(html.H2("AMVOC", style={'textAlign': 'center',
+                                            'color': colors['text'], 'marginBottom': 30, 'marginTop':30}))),
+            dbc.Row([dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_cluster',
+                        options=[
+                            {'label': 'Agglomerative', 'value': 'agg'},
+                            {'label': 'Birch', 'value': 'birch'},
+                            {'label': 'Gaussian Mixture', 'value': 'gmm'},
+                            {'label': 'K-Means', 'value': 'kmeans'},
+                            {'label': 'Mini-Batch K-Means', 'value': 'mbkmeans'},
+                            {'label': 'Spectral', 'value': 'spec'},
+                        ], value='agg'
+                    ),
+                    width=2,
+                ),
+                dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_n_clusters',
+                        options=[{'label': i, 'value': i} for i in range(2,11)
+                        ], value=2
+                    ),
+                    width=2,
+                ),
+                dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_feats_type',
+                        options=[
+                            {'label': 'Simple', 'value': 'simple'},
+                            {'label': 'Deep', 'value': 'deep'},
+                        ], value='simple'
+                    ),
+                    width=2,
+                ),
+                html.Table([
+                html.Tr([html.Td(['Silhouette score']), html.Td(id='silhouette')]),
+                html.Tr([html.Td(['Calinski-Harabasz score']), html.Td(id='cal-har')]),
+                html.Tr([html.Td(['Davies-Bouldin score']), html.Td(id='dav-bould')]),
+            ]),
+            ]),
+            dbc.Row([dbc.Col(html.Div(children = "Total cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
+                    dbc.Col(html.Div(children = "Specific cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
+                    dbc.Col(html.Div(children = "Point annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
+            ]),
+            dbc.Row([
+            dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_total_cluster_annotation',
+                        options=[
+                            {'label': 'No Validation', 'value': 'no'}]+
+                            [{'label': i, 'value': i} for i in np.arange(10,110,10)], value = 'no'
+                    ),
+                    width=2,
+                    style={'display': 'block'}
+                ),
+            dbc.Col(     
+                html.Button('Submit', id='btn_3', n_clicks=0),  
+                    width=1,
+                    style={'display': 'block'}
+            ),
+            
+            dbc.Col(
+                    dcc.Dropdown(
+                        id='dropdown_cluster_annotation',
+                        options=[
+                            {'label': 'No Validation', 'value': 'no'}]+
+                            [{'label': i, 'value': i} for i in np.arange(10,110,10)], value = 'no'
+                    ),
+                    width=2,
+                    style={'display': 'block'}
+                ),
+            dbc.Col(     
+                html.Button('Submit', id='btn_2', n_clicks=0),  
+                    width=1,
+                    style={'display': 'block'}
             ),
             dbc.Col(
-                dcc.Dropdown(
-                    id='dropdown_feats_type',
-                    options=[
-                        {'label': 'Simple', 'value': 'simple'},
-                        {'label': 'Deep', 'value': 'deep'},
-                    ], value='simple'
+                    dcc.Dropdown(
+                        id='dropdown_point_annotation',
+                        options=[
+                            {'label': 'No Validation', 'value': 'no'},
+                            {'label': 'Approve', 'value': 'approve'},
+                            {'label': 'Reject', 'value': 'reject'},
+                        ], value = 'no'
+                    ),
+                    width=2,
+                    style={'display': 'block'}
                 ),
-                width=2,
+            dbc.Col(     
+                html.Button('Submit', id='btn_1', n_clicks=0),  
+                    width=1,
+                    style={'display': 'block'}
             ),
-            html.Table([
-            html.Tr([html.Td(['Silhouette score']), html.Td(id='silhouette')]),
-            html.Tr([html.Td(['Calinski-Harabasz score']), html.Td(id='cal-har')]),
-            html.Tr([html.Td(['Davies-Bouldin score']), html.Td(id='dav-bould')]),
-        ]),]),
-        dbc.Row(dbc.Col(
-            dcc.Graph(id='cluster_graph')
-        )),
-        dbc.Row([dbc.Col(
-        dcc.Graph(id='spectrogram', hoverData = {'points': [{'pointIndex': 0}]}),width = 6
-        
-        ), 
-        dbc.Col(
-            dcc.Graph(id='contour_plot', hoverData = {'points': [{'pointIndex': 0}]}), width = 6
-        )]),
-    ], style={"height": "100vh"})
+            ]),
+            dbc.Row(dbc.Col(
+                dcc.Graph(id='cluster_graph')
+            )),
+            dbc.Row([dbc.Col(
+            dcc.Graph(id='spectrogram', hoverData = {'points': [{'pointIndex': 0}]}),width = 6
+            
+            ), 
+            dbc.Col(
+                dcc.Graph(id='contour_plot', hoverData = {'points': [{'pointIndex': 0}]}), width = 6
+            )]),
+            # these are intermediate values to be used for sharing content
+            # between callbacks
+            # (see here https://dash.plotly.com/sharing-data-between-callbacks)
+            dbc.Row(id='intermediate_val_syllables', style={'display': 'none'}),
+            dbc.Row(id='intermediate_val_total_clusters', style={'display': 'none'}),
+            dbc.Row(id='intermediate_val_clusters', style={'display': 'none'}),
+            dbc.Row(id='clustering_info',
+                     style={'display': 'none'})
+        ], style={"height": "100vh"})
     return layout
 
 
 if __name__ == "__main__":
     args = parse_arguments()
-    global sp_time, sp_freq
+    global sp_time, sp_freq, moves
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
                                                            ST_WIN, ST_STEP)
 
-
+    with open('annotations.json', 'w') as outfile:
+        x = json.dumps({'input_file': args.input_file.split('/')[-1], 'total_cluster_annotations': [], 'cluster_annotations': [], 'point_annotations': []}, indent=4)
+        outfile.write(x)
     # These should change depending on the signal's size
     spec_resize_ratio_freq = 4
     spec_resize_ratio_time = 4
@@ -298,7 +492,10 @@ if __name__ == "__main__":
         external_stylesheets=[dbc.themes.BOOTSTRAP]
     )
     clean_spectrogram = ap.clean_spectrogram(spectrogram)
-    app.layout = get_layout()
+    if args.spectrogram=='False'or args.spectrogram=='false' or args.spectrogram=='0':
+        app.layout = get_layout(False)
+    elif args.spectrogram=='True' or args.spectrogram=='true' or args.spectrogram=='1':
+        app.layout = get_layout(True)
 
     """
     On-spectrogram-click callback: 
@@ -311,37 +508,38 @@ if __name__ == "__main__":
             3.3) read class label of selected syllable 
                  and update class dropdown menu of class name
     """
-    # @app.callback(
-    #     [Output('label_sel_start', 'children'),
-    #      Output('label_sel_end', 'children'),
-    #      Output('label_class', 'children')
-    #      ],
-    #     [Input('heatmap1', 'clickData')])
-    # def display_click_data(click_data):
-    #     t1, t2 = 0.0, 0.0
-    #     i_s = -1
-    #     found = False
-    #     if click_data:
-    #         if len(click_data["points"]) > 0:
-    #             t = click_data["points"][0]["x"]
-    #             for i_s, s in enumerate(syllables):
-    #                 if s["st"] < t and s["et"] > t:
-    #                     t1 = s["st"]
-    #                     t2 = s["et"]
-    #                     syllable_label = 'class {}'.format(labels[i_s])
-    #                     found = True
-    #                     break
-    #     if not found:
-    #         i_s = -1
-    #         syllable_label = ""
-    #     return "{0:.2f}".format(t1), "{0:.2f}".format(t2), syllable_label
+    @app.callback(
+        [Output('label_sel_start', 'children'),
+         Output('label_sel_end', 'children'),
+         Output('label_class', 'children')
+         ],
+        [Input('heatmap1', 'clickData')])
+    def display_click_data(click_data):
+        t1, t2 = 0.0, 0.0
+        i_s = -1
+        found = False
+        if click_data:
+            if len(click_data["points"]) > 0:
+                t = click_data["points"][0]["x"]
+                for i_s, s in enumerate(syllables):
+                    if s["st"] < t and s["et"] > t:
+                        t1 = s["st"]
+                        t2 = s["et"]
+                        syllable_label = 'class {}'.format(labels[i_s])
+                        found = True
+                        break
+        if not found:
+            i_s = -1
+            syllable_label = ""
+        return "{0:.2f}".format(t1), "{0:.2f}".format(t2), syllable_label
                
 
     @app.callback(
         [Output('cluster_graph', 'figure'),
          Output('silhouette', 'children'),
          Output('cal-har', 'children'),
-         Output('dav-bould', 'children')],
+         Output('dav-bould', 'children'),
+         Output('clustering_info', 'children'),],
         [Input('dropdown_cluster', 'value'),
          Input('dropdown_n_clusters', 'value'),
          Input('dropdown_feats_type', 'value')])
@@ -361,7 +559,143 @@ if __name__ == "__main__":
                         mode='markers',
                         marker=go.scatter.Marker(color=y),
                         showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
-        return fig, round(scores[0],3), round(scores[1]), round(scores[2],3)
+        data = {
+            "method": method,
+            "number_of_clusters": n_clusters,
+            "features_type": feats_type,
+            # "clustering": labels 
+        }
+        
+        return fig, round(scores[0],3), round(scores[1]), round(scores[2],3), data
+
+    # @app.callback(
+    #     [Output('dropdown_total_cluster_annotation','style'),
+    #      Output('btn_3', 'style')],
+    #     [Input('cluster_graph', 'clickData')]
+    # )
+    # def point_validation(click_data):
+    #     if click_data:
+
+    #         return {'display': 'block'}, {'display': 'block'}
+    #     else:
+    #         return {'display': 'none'}, {'display': 'none'}
+    
+    # @app.callback(
+    #     [Output('dropdown_total_cluster_annotation','style'),
+    #     ],
+    #     [Input('btn_3', 'n_clicks')]
+    # )
+    # def point_validation_2(n_clicks):
+    #     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+    #     if 'btn_3' in changed_id:
+    #         return {'display': 'none'}
+    
+    @app.callback(
+        Output('intermediate_val_syllables', 'children'),
+        [Input('cluster_graph', 'clickData'),
+         Input('dropdown_point_annotation', 'value'),
+         Input('clustering_info', 'children'),
+         Input('btn_1', 'n_clicks')])
+         
+    def point_annotation(click_data, val, info, n_clicks):
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+        if click_data and (val=='approve' or val=='reject') and 'btn_1' in changed_id:
+            fig = plt.figure()
+            plt.imshow(images[click_data['points'][0]['pointIndex']].T)
+            plt.savefig('spec_{}.png'.format(click_data['points'][0]['pointIndex']))
+            plt.close(fig)
+            point_info = {'index': click_data['points'][0]['pointIndex'] , 
+                          'class': int(labels[click_data['points'][0]['pointIndex']]), 
+                          'start time': syllables[click_data['points'][0]['pointIndex']]['st'], 'end time': syllables[click_data['points'][0]['pointIndex']]['et'],
+                          'spec_file': 'spec_{}.png'.format(click_data['points'][0]['pointIndex']), 'annotation': val}
+            point_info = {**point_info, **info}
+            # options = jsbeautifier.default_options()
+            # options.indent_size = 2
+
+            with open('annotations.json', 'r') as infile:
+                data=json.load(infile)
+
+            with open('annotations.json', 'w') as outfile:
+                ready = False
+                for i, point_ann in enumerate(data['point_annotations']):    
+                    shared_items = {k: point_info[k] for k in point_info if k in point_ann and point_info[k] == point_ann[k]}
+                    if len(shared_items)==len(point_info)-1:
+                        data['point_annotations'][i]['annotation'] = val
+                        ready = True
+                        break
+                if ready==False:
+                    data['point_annotations'].append(point_info)
+                # x = jsbeautifier.beautify(json.dumps(data), options)
+                x = json.dumps(data, indent=2)
+                outfile.write(x)
+
+        return '{}'
+
+    @app.callback(
+        Output('intermediate_val_clusters', 'children'),
+        [Input('cluster_graph', 'clickData'),
+         Input('dropdown_cluster_annotation', 'value'),
+         Input('clustering_info', 'children'),
+         Input('btn_2', 'n_clicks')])
+         
+    def cluster_annotation(click_data, val, info, n_clicks):
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+        if click_data and val and val!='no' and 'btn_2' in changed_id:
+            
+            # options = jsbeautifier.default_options()
+            # options.indent_size = 2
+
+            with open('annotations.json', 'r') as infile:
+                data=json.load(infile)
+            
+            with open('annotations.json', 'w') as outfile:
+                ready = False
+                info['class'] = int(labels[click_data['points'][0]['pointIndex']])
+                for i, cluster_ann in enumerate(data['cluster_annotations']):    
+                    shared_items = {k: info[k] for k in info if k in cluster_ann and info[k] == cluster_ann[k]}
+                    if len(shared_items)==len(info):
+                        data['cluster_annotations'][i]['annotation'] = val
+                        ready = True
+                        break
+                if ready==False:
+                    info['annotation'] = val 
+                    data['cluster_annotations'].append(info)
+                # x = jsbeautifier.beautify(json.dumps(data), options)
+                x = json.dumps(data, indent=2)
+                outfile.write(x)
+        return '{}'    
+
+    @app.callback(
+        Output('intermediate_val_total_clusters', 'children'),
+        [Input('dropdown_total_cluster_annotation', 'value'),
+         Input('clustering_info', 'children'),
+         Input('btn_3', 'n_clicks')])
+         
+    def total_cluster_annotation(val, info, n_clicks):
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+        if val and val!='no' and 'btn_3' in changed_id:
+            
+            # options = jsbeautifier.default_options()
+            # options.indent_size = 2
+
+            with open('annotations.json', 'r') as infile:
+                data=json.load(infile)
+            
+            with open('annotations.json', 'w') as outfile:
+                ready = False
+                for i, total_cluster_ann in enumerate(data['total_cluster_annotations']):    
+                    shared_items = {k: info[k] for k in info if k in total_cluster_ann and info[k] == total_cluster_ann[k]}
+                    if len(shared_items)==len(info):
+                        data['total_cluster_annotations'][i]['annotation'] = val
+                        ready = True
+                        break
+                if ready==False:
+                    info['annotation'] = val 
+                    data['total_cluster_annotations'].append(info)
+                # x = jsbeautifier.beautify(json.dumps(data), options)
+                x = json.dumps(data, indent=2)
+                outfile.write(x)
+        return '{}'    
 
     @app.callback(
         Output('spectrogram', 'figure'),
