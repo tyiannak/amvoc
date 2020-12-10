@@ -1,11 +1,10 @@
-import sys
 import argparse
 import torch
 import torch.nn as nn
 from torchsummary import summary
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
-import os, glob
+import os
+import utils
 import audio_recognize as ar
 import audio_process as ap
 import numpy as np
@@ -13,21 +12,14 @@ from torch.utils.data import TensorDataset, DataLoader
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
 
+config_data = utils.load_config("config.json")
+ST_WIN = config_data['params']['ST_WIN']
+ST_STEP = config_data['params']['ST_STEP']
+MIN_VOC_DUR = config_data['params']['MIN_VOC_DUR']
+F1 = config_data['params']['F1']
+F2 = config_data['params']['F2']
+thres = config_data['params']['thres']
 
-# These values are selected based on the evaluation.py script and the results
-# obtained from running these scripts on two long annotated recordings
-ST_WIN = 0.002    # short-term window
-ST_STEP = 0.002   # short-term step
-MIN_VOC_DUR = 0.005
-
-# The frequencies used for spectral energy calculation (Hz)
-F1 = 30000
-F2 = 110000
-
-# Also, default thres value is set to 1.3 (this is the optimal based on
-# the same evaluation that led to the parameter set of the
-# short-term window and step
-thres = 1.
 
 class ConvAutoencoder(nn.Module):
     def __init__(self):

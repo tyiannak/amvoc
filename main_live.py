@@ -12,19 +12,25 @@ import time
 import scipy.io.wavfile as wavfile
 import audio_process as ap
 from pyAudioAnalysis import audioBasicIO as io
+import utils
 
 global fs
 global all_data
 global outstr
 global wav_signal
 
+
 buff_size = 0.01  # recording buffer size in seconds
 mid_buffer_size = 1.0  # processing buffer size in seconds
-st_win = 0.002  # short-term window size in seconds
-F1 = 30000  # lower spectral energy sequence
-F2 = 110000  # higher spectral energy sequence
-MIN_VOC_DUR = 0.005
-thres = 1.3
+
+config_data = utils.load_config("config.json")
+ST_WIN = config_data['params']['ST_WIN']
+ST_STEP = config_data['params']['ST_STEP']
+MIN_VOC_DUR = config_data['params']['MIN_VOC_DUR']
+F1 = config_data['params']['F1']
+F2 = config_data['params']['F2']
+thres = config_data['params']['thres']
+
 
 wav_signal = None
 
