@@ -16,28 +16,65 @@ import plotly.graph_objs as go
 from dash.dependencies import Input, Output, State
 import audio_process as ap
 import audio_recognize as ar
-import json
+import utils
 import dash_bootstrap_components as dbc
 from sklearn.manifold import TSNE
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
-# These values are selected based on the evaluation.py script and the results
-# obtained from running these scripts on two long annotated recordings
-ST_WIN = 0.002    # short-term window
-ST_STEP = 0.002   # short-term step
-MIN_VOC_DUR = 0.005
+config_data = utils.load_config("config.json")
+ST_WIN = config_data['params']['ST_WIN']
+ST_STEP = config_data['params']['ST_STEP']
+MIN_VOC_DUR = config_data['params']['MIN_VOC_DUR']
+F1 = config_data['params']['F1']
+F2 = config_data['params']['F2']
+thres = config_data['params']['thres']
 
-# The frequencies used for spectral energy calculation (Hz)
-F1 = 30000
-F2 = 110000
 
-# Also, default thres value is set to 1.3 (this is the optimal based on
-# the same evaluation that led to the parameter set of the
-# short-term window and step
-thres = 1.
+class ConvAutoencoder(nn.Module):
+    def __init__(self):
+        super(ConvAutoencoder, self).__init__()
+        ## encoder layers ##
+        # conv layer (depth from 3 --> 64), 3x3 kernels
+        self.conv1 = nn.Conv2d(1, 64, 3, padding =1)  
+        # conv layer (depth from 64 --> 32), 3x3 kernels
+        self.conv2 = nn.Conv2d(64, 32, 3, padding=1)
+        # conv layer (depth from 32 --> 8), 3x3 kernels
+        self.conv3 = nn.Conv2d(32, 8, 3, padding=1)
 
+        self.pool = nn.MaxPool2d((2,2), 2)
+
+        ## decoder layers ##
+        # a kernel of 2 and a stride of 2 will increase the spatial dims by 2
+        self.t_conv1 = nn.ConvTranspose2d(8, 32, 2, stride=2)
+        self.t_conv2 = nn.ConvTranspose2d(32, 64, 2, stride=2)
+        self.t_conv3 = nn.ConvTranspose2d(64, 1, 2, stride=2)
+
+    def forward(self, x):
+        ## encode ##
+        # add hidden layers with relu activation function
+        # and maxpooling after
+        x = F.relu(self.conv1(x))
+        x = self.pool(x)
+        # add second hidden layer
+        x = F.relu(self.conv2(x))
+        x = self.pool(x)  
+        # add third hidden layer
+        x = F.relu(self.conv3(x))
+        x = self.pool(x) # compressed representation
+
+        if self.training:
+            ## decode ##
+            # add transpose conv layers, with relu activation function
+            x = F.relu(self.t_conv1(x))        
+            x = F.relu(self.t_conv2(x))
+            # output layer (with sigmoid for scaling from 0 to 1)
+            x = F.sigmoid(self.t_conv3(x))      
+        return x
 
 def parse_arguments():
     """Parse arguments for real time demo.
@@ -61,15 +98,17 @@ def get_shapes(segments, freq1, freq2):
 
 
 def get_layout():
+
+    global list_contour, segments, images, f1, f2, feats_simple, feats_deep, feats_2d_s, feats_2d_d, seg_limits, syllables
     seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                spectral_energy_1,
                                                ST_STEP,
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
     images, f_points, f_points_init, \
-    feats, feat_names = ar.cluster_syllables(seg_limits, spectrogram,
+    [feats_simple, feats_deep], feat_names, [f1, f2], segments, seg_limits = ar.cluster_syllables(seg_limits, spectrogram,
                                              sp_freq, f_low, f_high,  ST_STEP)
-                                             
+
     #Dimension reduction for plotting
     # Tune T-SNE
     # feats = []
@@ -82,22 +121,21 @@ def get_layout():
     #     kl.append(tsne.kl_divergence_)
     # index = np.argmin(np.array(kl))
     # print(iterations[index])
-    tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
-    feats_2 = tsne.fit_transform(feats)
-    np.save('feats.npy', feats) # save
-    np.save('feats_2d.npy', feats_2)
-    np.save('images.npy', np.array(images,dtype = object))
-    np.save('listcontour.npy', np.array(f_points, dtype=object))
-    np.save('seg_limits.npy', seg_limits)
-    #cluster_plots = ar.util_generate_cluster_graphs(f_points, clusters)
 
+    tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
+    feats_2d_s = tsne.fit_transform(feats_simple)
+    tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
+    feats_2d_d = tsne.fit_transform(feats_deep)
+    list_contour = np.array(f_points, dtype=object)
+    images = np.array(images, dtype=object) 
     f_points_all, f_points_init_all = [[], []], [[], []]
+    
+
     for iS in range(len(seg_limits)):
         f_points_all[0] += f_points[iS][0]
         f_points_all[1] += f_points[iS][1]
         f_points_init_all[0] += f_points_init[iS][0]
         f_points_init_all[1] += f_points_init[iS][1]
-
     shapes2, shapes3 = [], []
     for x, y in zip(f_points_all[0], f_points_all[1]):
         s1 = {
@@ -120,144 +158,65 @@ def get_layout():
             'line': {'color': 'rgba(0, 128, 0, 1)', 'width': 1},
             'fillcolor': 'rgba(128, 128, 0, 1)'}
         shapes3.append(s1)
-
-    # class_names = ["c1", "c2", "c3", "c4"]
-    # syllables = [{"st": s[0], "et": s[1], "label": class_names[clusters[iS]]}
-    #              for iS, s in enumerate(seg_limits)]
-    # with open('annotations.json', 'w') as outfile:
-    #     json.dump(syllables, outfile)
+    
+    
+    syllables = [{"st": s[0], "et": s[1]}
+                 for iS, s in enumerate(seg_limits)]
 
     shapes1 = get_shapes(seg_limits, f_low, f_high)
-
     layout = dbc.Container([
         # Title
          dbc.Row(dbc.Col(html.H2("AMVOC", style={'textAlign': 'center',
-                                        'color': colors['text']}))),
+                                        'color': colors['text'], 'marginBottom': 30, 'marginTop':30}))),
 
-        # Selected segment controls
-        dbc.Row(
-            [
-                dbc.Col(
-                    html.Label(id="label_sel_start", children="Selected start",
-                               style={'textAlign': 'center',
-                                       'color': colors['text']}),
-                    width=1,
-                ),
-                dbc.Col
-                    (
-                    html.Label(id="label_sel_end", children="Selected end",
-                               style={'textAlign': 'center',
-                                      'color': colors['text']}),
-                    width=1,
-                ),
-                dbc.Col(
-                    html.Label(
-                        id='label_class',
-                        children="Class",
-                               style={'textAlign': 'center',
-                                       'color': colors['text']}
-                    ),
-                    width=1,
-                )
-                # dbc.Col(
-                #     dcc.Dropdown(
-                #         id='dropdown_class',
-                #         options=[
-                #             {'label': 'no-class', 'value': 'no'},
-                #             {'label': 'class1', 'value': 'c1'},
-                #             {'label': 'class2', 'value': 'c2'},
-                #             {'label': 'class3', 'value': 'c3'},
-                #             {'label': 'class4', 'value': 'c4'},
-                #         ], value='no'
-                #     ),
-                #     width=2,
-                # )
-            ], className="h-5"),
-
-        # # Clusters visualizations
+        # # Selected segment controls
         # dbc.Row(
         #     [
         #         dbc.Col(
-        #             html.Div([
-        #                 dcc.Graph(
-        #                     id='cluster1',
-        #                     figure={
-        #                         'data': cluster_plots[0],
-        #                         'layout': go.Layout(
-        #                             margin=dict(l=1, r=1, b=1, t=1, pad=4),
-        #                             xaxis=dict(visible=False),
-        #                             yaxis=dict(visible=False,
-        #                                        autorange=False,
-        #                                        range=[0, 120000]),)
-        #                         }),
-        #             ]), width=3),
+        #             html.Label(id="label_sel_start", children="Selected start",
+        #                        style={'textAlign': 'center',
+        #                                'color': colors['text']}),
+        #             width=1,
+        #         ),
+        #         dbc.Col
+        #             (
+        #             html.Label(id="label_sel_end", children="Selected end",
+        #                        style={'textAlign': 'center',
+        #                               'color': colors['text']}),
+        #             width=1,
+        #         ),
         #         dbc.Col(
-        #             html.Div([
-        #                 dcc.Graph(
-        #                     id='cluster2',
-        #                     figure={
-        #                         'data': cluster_plots[1],
-        #                         'layout': go.Layout(
-        #                             margin=dict(l=1, r=1, b=1, t=1, pad=4),
-        #                             xaxis=dict(visible=False),
-        #                             yaxis=dict(visible=False,
-        #                                        autorange=False,
-        #                                        range=[0, 120000]), )
-        #                     }),
-        #             ]), width=3),
-        #         dbc.Col(
-        #             html.Div([
-        #                 dcc.Graph(
-        #                     id='cluster3',
-        #                     figure={
-        #                         'data': cluster_plots[2],
-        #                         'layout': go.Layout(
-        #                             margin=dict(l=1, r=1, b=1, t=1, pad=4),
-        #                             xaxis=dict(visible=False),
-        #                             yaxis=dict(visible=False,
-        #                                        autorange=False,
-        #                                        range=[0, 120000]), )
-        #                     }),
-        #             ]), width=3),
-        #         dbc.Col(
-        #             html.Div([
-        #                 dcc.Graph(
-        #                     id='cluster4',
-        #                     figure={
-        #                         'data': cluster_plots[3],
-        #                         'layout': go.Layout(
-        #                             margin=dict(l=1, r=1, b=1, t=1, pad=4),
-        #                             xaxis=dict(visible=False),
-        #                             yaxis=dict(visible=False,
-        #                                        autorange=False,
-        #                                        range=[0, 120000]), )
-        #                     }),
-        #             ]), width=3),
+        #             html.Label(
+        #                 id='label_class',
+        #                 children="Class",
+        #                        style={'textAlign': 'center',
+        #                                'color': colors['text']}
+        #             ),
+        #             width=1,
+        #         )
+        #     ], className="h-5"),
 
-        #     ], className="h-25"
+        # # Main heatmap
+        # dbc.Row(dbc.Col(
+        #     dcc.Graph(
+        #         id='heatmap1',
+        #         figure={
+        #             'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
+        #                                 y=sp_freq[::spec_resize_ratio_freq],
+        #                                 z=clean_spectrogram[::spec_resize_ratio_time,
+        #                                   ::spec_resize_ratio_freq].T,
+        #                                 name='F', colorscale='Jet',
+        #                                 showscale=False)],
+        #             'layout': go.Layout(
+        #                 title = 'Spectrogram of the signal',
+        #                 margin=dict(l=55, r=20, b=120, t=40, pad=4),
+        #                 xaxis=dict(title='Time (Sec)'),
+        #                 yaxis=dict(title='Freq (Hz)'),
+        #                 shapes=shapes1 + shapes2 + shapes3)
+        #         }), width=12,
+        #     style={"height": "100%", "background-color": "white"}),
+        #     className="h-50",
         # ),
-
-        # Main heatmap
-        dbc.Row(dbc.Col(
-            dcc.Graph(
-                id='heatmap1',
-                figure={
-                    'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
-                                        y=sp_freq[::spec_resize_ratio_freq],
-                                        z=clean_spectrogram[::spec_resize_ratio_time,
-                                          ::spec_resize_ratio_freq].T,
-                                        name='F', colorscale='Jet',
-                                        showscale=False)],
-                    'layout': go.Layout(
-                        title = 'Spectrogram of the signal',
-                        margin=dict(l=55, r=20, b=120, t=40, pad=4),
-                        xaxis=dict(title='Time (Sec)'),
-                        yaxis=dict(title='Freq (Hz)'),
-                        shapes=shapes1 + shapes2 + shapes3)
-                }), width=12,
-            style={"height": "100%", "background-color": "white"}),
-            className="h-50",
-        ),
         dbc.Row([dbc.Col(
                 dcc.Dropdown(
                     id='dropdown_cluster',
@@ -267,7 +226,7 @@ def get_layout():
                         {'label': 'Gaussian Mixture', 'value': 'gmm'},
                         {'label': 'K-Means', 'value': 'kmeans'},
                         {'label': 'Mini-Batch K-Means', 'value': 'mbkmeans'},
-                        {'label': 'Spectral', 'value': 'spec'}
+                        {'label': 'Spectral', 'value': 'spec'},
                     ], value='agg'
                 ),
                 width=2,
@@ -277,6 +236,16 @@ def get_layout():
                     id='dropdown_n_clusters',
                     options=[{'label': i, 'value': i} for i in range(2,11)
                     ], value=2
+                ),
+                width=2,
+            ),
+            dbc.Col(
+                dcc.Dropdown(
+                    id='dropdown_feats_type',
+                    options=[
+                        {'label': 'Simple', 'value': 'simple'},
+                        {'label': 'Deep', 'value': 'deep'},
+                    ], value='simple'
                 ),
                 width=2,
             ),
@@ -295,28 +264,20 @@ def get_layout():
         dbc.Col(
             dcc.Graph(id='contour_plot', hoverData = {'points': [{'pointIndex': 0}]}), width = 6
         )]),
-        # these are intermediate values to be used for sharing content
-        # between callbacks
-        # (see here https://dash.plotly.com/sharing-data-between-callbacks)
-        dbc.Row(id='intermediate_val_syllables', style={'display': 'none'}),
-        dbc.Row(id='intermediate_val_selected_syllable',
-                 style={'display': 'none'})
     ], style={"height": "100vh"})
-
     return layout
 
 
 if __name__ == "__main__":
     args = parse_arguments()
-
+    global sp_time, sp_freq
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
                                                            ST_WIN, ST_STEP)
 
-    np.save('sp_time.npy',sp_time)
-    np.save('sp_freq.npy', sp_freq)
+
     # These should change depending on the signal's size
-    spec_resize_ratio_freq = 2
-    spec_resize_ratio_time = 2
+    spec_resize_ratio_freq = 4
+    spec_resize_ratio_time = 4
 
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
@@ -344,50 +305,31 @@ if __name__ == "__main__":
             3.3) read class label of selected syllable 
                  and update class dropdown menu of class name
     """
-    @app.callback(
-        [Output('label_sel_start', 'children'),
-         Output('label_sel_end', 'children'),
-        #  Output('intermediate_val_selected_syllable', 'children'),
-         Output('label_class', 'children')
-         ],
-        [Input('heatmap1', 'clickData')])
-    def display_click_data(click_data):
-        with open('annotations.json') as json_file:
-            json_file.seek(0)
-            syllables = json.load(json_file)
-        t1, t2 = 0.0, 0.0
-        i_s = -1
-        found = False
-        if click_data:
-            if len(click_data["points"]) > 0:
-                t = click_data["points"][0]["x"]
-                for i_s, s in enumerate(syllables):
-                    if s["st"] < t and s["et"] > t:
-                        t1 = s["st"]
-                        t2 = s["et"]
-                        syllable_label = 'class {}'.format(s["label"][1])
-                        found = True
-                        break
-        if not found:
-            i_s = -1
-            syllable_label = ""
-        return "{0:.2f}".format(t1), "{0:.2f}".format(t2), syllable_label
-            #    "{0:d}".format(i_s), 
-               
-               
     # @app.callback(
-    #     Output('intermediate_val_syllables', 'children'),
-    #     [Input('dropdown_class', 'value'),
-    #      Input('intermediate_val_selected_syllable', 'children')])
-    # def update_annotations(dropdown_class, selected):
-    #     with open('annotations.json') as json_file:
-    #         json_file.seek(0)
-    #         syllables = json.load(json_file)
-    #     if dropdown_class and selected:
-    #         syllables[int(selected)]["label"] = dropdown_class
-    #         with open('annotations.json', 'w') as outfile:
-    #             json.dump(syllables, outfile)
-    #     return "{}"
+    #     [Output('label_sel_start', 'children'),
+    #      Output('label_sel_end', 'children'),
+    #      Output('label_class', 'children')
+    #      ],
+    #     [Input('heatmap1', 'clickData')])
+    # def display_click_data(click_data):
+    #     t1, t2 = 0.0, 0.0
+    #     i_s = -1
+    #     found = False
+    #     if click_data:
+    #         if len(click_data["points"]) > 0:
+    #             t = click_data["points"][0]["x"]
+    #             for i_s, s in enumerate(syllables):
+    #                 if s["st"] < t and s["et"] > t:
+    #                     t1 = s["st"]
+    #                     t2 = s["et"]
+    #                     syllable_label = 'class {}'.format(labels[i_s])
+    #                     found = True
+    #                     break
+    #     if not found:
+    #         i_s = -1
+    #         syllable_label = ""
+    #     return "{0:.2f}".format(t1), "{0:.2f}".format(t2), syllable_label
+               
 
     @app.callback(
         [Output('cluster_graph', 'figure'),
@@ -395,20 +337,24 @@ if __name__ == "__main__":
          Output('cal-har', 'children'),
          Output('dav-bould', 'children')],
         [Input('dropdown_cluster', 'value'),
-         Input('dropdown_n_clusters', 'value')])
-    def update_cluster_graph(method, n_clusters):
-        feats = np.load('feats.npy')
-        feats_2d = np.load('feats_2d.npy')
-        seg_limits = np.load('seg_limits.npy')
-        y, centers, scores = ar.clustering(method, n_clusters, feats)
-        syllables = [{"st": s[0], "et": s[1], "label": 'c{}'.format(y[iS])}
-                    for iS, s in enumerate(seg_limits)]
-        with open('annotations.json', 'w') as outfile:
-            json.dump(syllables, outfile)
-        fig = go.Figure(data = go.Scatter(x = feats_2d[:, 0], y = feats_2d[:, 1], name='',
-                     mode='markers',
-                     marker=go.scatter.Marker(color=y),
-                     showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
+         Input('dropdown_n_clusters', 'value'),
+         Input('dropdown_feats_type', 'value')])
+    def update_cluster_graph(method, n_clusters, feats_type):
+        global labels
+        if feats_type == 'simple':
+            y, scores = ar.clustering(method, n_clusters, feats_simple)
+            labels = y
+            fig = go.Figure(data = go.Scatter(x = feats_2d_s[:, 0], y = feats_2d_s[:, 1], name='',
+                        mode='markers',
+                        marker=go.scatter.Marker(color=y),
+                        showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
+        elif feats_type == 'deep':
+            y, scores = ar.clustering(method, n_clusters, feats_deep)
+            labels = y
+            fig = go.Figure(data = go.Scatter(x = feats_2d_d[:, 0], y = feats_2d_d[:, 1], name='',
+                        mode='markers',
+                        marker=go.scatter.Marker(color=y),
+                        showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
         return fig, round(scores[0],3), round(scores[1]), round(scores[2],3)
 
     @app.callback(
@@ -416,18 +362,15 @@ if __name__ == "__main__":
         [Input('cluster_graph', 'hoverData')]
     )
     def display_hover_data(hoverData):
-        images = np.load('images.npy', allow_pickle=True)
-        segments = np.load('segments.npy', allow_pickle=True)
-        sp_time = np.load('sp_time.npy')
-        sp_freq = np.load('sp_freq.npy')
-        [f1,f2] = np.load('freqs.npy')
         if hoverData:
             index = hoverData['points'][0]['pointIndex']
         else:
             index = 0
-        fig = go.Figure(data = go.Heatmap(x =sp_time[segments[index][0]:segments[index][1]], y=sp_freq[f1:f2], z = images[index].T, zmin = np.amin(images[index]), zmax = np.amax(images[index])+1*(np.amax(images[index])-np.amin(images[index])), showscale=False))
-        fig.update_layout(title = 'Spectrogram of syllable', margin={'l': 0, 'b': 40, 't': 40, 'r': 0}, xaxis = dict(range=[(sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2-0.1, (sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2+0.1], title = 'Time (Sec)'),
-                        yaxis=dict(range = [sp_freq[0], sp_freq[-1]], title='Freq (Hz)'))
+        fig = go.Figure(data = go.Heatmap(x =sp_time[segments[index][0]:segments[index][1]], y=sp_freq[f1:f2], z = images[index].T, zmin = np.amin(images[index]), 
+                                          zmax = np.amax(images[index])+(np.amax(images[index])-np.amin(images[index])), showscale=False),
+                        layout = go.Layout(title = 'Spectrogram of syllable', margin={'l': 0, 'b': 40, 't': 40, 'r': 0}, 
+                                           xaxis = dict(range=[(sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2-0.1, (sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2+0.1], 
+                                                        title = 'Time (Sec)'), yaxis=dict(range = [sp_freq[0], sp_freq[-1]], title='Freq (Hz)')))
         return fig
 
     @app.callback(
@@ -435,18 +378,14 @@ if __name__ == "__main__":
         [Input('cluster_graph', 'hoverData')]
     )
     def display_hover_data(hoverData):
-        list_contour = np.load('listcontour.npy', allow_pickle = True)
-        segments = np.load('segments.npy', allow_pickle=True)
-        sp_freq = np.load('sp_freq.npy')
         if hoverData:
             index = hoverData['points'][0]['pointIndex']
         else:
             index = 0
-        l = list_contour[index]
-        t = l[0]
-        y = l[1]
-        fig = go.Figure(data = go.Scatter(x = t, y=y, mode='lines+markers'))
-        fig.update_layout(title = 'Points of max frequency per time window of syllable', margin=dict(l=0, r=0, b=40, t=40, pad=4), xaxis=dict(visible=True, title = 'Time (Sec)'), yaxis=dict(visible=True, autorange=False, range=[sp_freq[0], sp_freq[-1]], title='Freq (Hz)'))
+        fig = go.Figure(data = go.Scatter(x = list_contour[index][0], y=list_contour[index][1], mode='lines+markers'), 
+                        layout = go.Layout(title = 'Points of max frequency per time window of syllable', margin=dict(l=0, r=0, b=40, t=40, pad=4), 
+                                           xaxis=dict(visible=True, title = 'Time (Sec)'), yaxis=dict(visible=True, autorange=False, range=[sp_freq[0], sp_freq[-1]], title='Freq (Hz)')))
+
         return fig
 
     app.run_server()

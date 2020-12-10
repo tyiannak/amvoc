@@ -6,12 +6,14 @@ import plotly.graph_objs as go
 import audio_process as ap
 import csv
 import os
+import utils
 
-# Global params
-MIN_VOC_DUR = 0.005
-# The frequencies used for spectral energy calculation (Hz)
-F1 = 30000
-F2 = 110000
+
+config_data = utils.load_config("config.json")
+MIN_VOC_DUR = config_data['params']['MIN_VOC_DUR']
+F1 = config_data['params']['F1']
+F2 = config_data['params']['F2']
+
 
 def read_ground_truth(filename, offset=0):
     """
