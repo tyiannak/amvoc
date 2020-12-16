@@ -201,10 +201,11 @@ if __name__ == '__main__':
 
     for epoch in range(n_epochs):
 
-        for feats in train_loader:
         # monitor training loss
-            train_loss = 0.0
-
+        train_loss = 0.0
+        
+        for feats in train_loader:
+        
             feats[0] = feats[0].to(device)
             ###################
             # train the model #

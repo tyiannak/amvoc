@@ -274,7 +274,7 @@ def get_layout(spec):
                 html.Tr([html.Td(['Davies-Bouldin score']), html.Td(id='dav-bould')]),
             ]),
             ]),
-            dbc.Row([dbc.Col(html.Div(children = "Total cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
+            dbc.Row([dbc.Col(html.Div(children = "Global cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Specific cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Point annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
             ]),
@@ -390,7 +390,7 @@ def get_layout(spec):
                 html.Tr([html.Td(['Davies-Bouldin score']), html.Td(id='dav-bould')]),
             ]),
             ]),
-            dbc.Row([dbc.Col(html.Div(children = "Total cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
+            dbc.Row([dbc.Col(html.Div(children = "Global cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Specific cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Point annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
             ]),
@@ -468,11 +468,12 @@ def get_layout(spec):
 
 if __name__ == "__main__":
     args = parse_arguments()
-    global sp_time, sp_freq, moves
+    global sp_time, sp_freq, moves, click_index
+    click_index =-1
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
                                                            ST_WIN, ST_STEP)
 
-    with open('annotations.json', 'w') as outfile:
+    with open('annotations_eval.json', 'w') as outfile:
         x = json.dumps({'input_file': args.input_file.split('/')[-1], 'total_cluster_annotations': [], 'cluster_annotations': [], 'point_annotations': []}, indent=4)
         outfile.write(x)
     # These should change depending on the signal's size
@@ -542,53 +543,57 @@ if __name__ == "__main__":
          Output('clustering_info', 'children'),],
         [Input('dropdown_cluster', 'value'),
          Input('dropdown_n_clusters', 'value'),
-         Input('dropdown_feats_type', 'value')])
-    def update_cluster_graph(method, n_clusters, feats_type):
-        global labels
-        if feats_type == 'simple':
-            y, scores = ar.clustering(method, n_clusters, feats_simple)
-            labels = y
-            fig = go.Figure(data = go.Scatter(x = feats_2d_s[:, 0], y = feats_2d_s[:, 1], name='',
-                        mode='markers',
-                        marker=go.scatter.Marker(color=y),
-                        showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
-        elif feats_type == 'deep':
-            y, scores = ar.clustering(method, n_clusters, feats_deep)
-            labels = y
-            fig = go.Figure(data = go.Scatter(x = feats_2d_d[:, 0], y = feats_2d_d[:, 1], name='',
-                        mode='markers',
-                        marker=go.scatter.Marker(color=y),
-                        showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
-        data = {
-            "method": method,
-            "number_of_clusters": n_clusters,
-            "features_type": feats_type,
-            # "clustering": labels 
-        }
+         Input('dropdown_feats_type', 'value'), 
+         Input('intermediate_val_syllables', 'children'),],
+        [State('silhouette', 'children'),
+         State('cal-har', 'children'),
+         State('dav-bould', 'children'),
+         State('clustering_info', 'children'),
+         State('cluster_graph', 'clickData'),
+         State('cluster_graph', 'figure')
+        ])
+    def update_cluster_graph(method, n_clusters, feats_type, n_clicks_3, sil, cal_har, dav_bould, clust_info, click_data, fig):
+        global labels,click_index
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+        if 'intermediate_val_syllables.children' in changed_id:
+            if click_data and  n_clicks_3=='yes':
+                index=click_data['points'][0]['pointIndex']
+                fig['data'][0]['marker']['size'][index]=10
+                fig['data'][0]['marker']['line']['color'][index]='DarkSlateGrey'
+                click_index = -1
+                return fig, sil, cal_har, dav_bould, clust_info
+            elif click_data:
+                index=click_data['points'][0]['pointIndex']
+                fig['data'][0]['marker']['size'][index]=10
+                if click_index != -1 and click_index != index:
+                    fig['data'][0]['marker']['size'][click_index]=7.5
+                click_index = index
+                return fig, sil, cal_har, dav_bould, clust_info
+        else:
+            if feats_type == 'simple':
+                y, scores = ar.clustering(method, n_clusters, feats_simple)
+                labels = y
+                fig = go.Figure(data = go.Scatter(x = feats_2d_s[:, 0], y = feats_2d_s[:, 1], name='',
+                            mode='markers',
+                            marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))], line=dict(width=2,
+                                        color=['White' for i in range(len(y))]), opacity=1.),
+                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
+            elif feats_type == 'deep':
+                y, scores = ar.clustering(method, n_clusters, feats_deep)
+                labels = y
+                fig = go.Figure(data = go.Scatter(x = feats_2d_d[:, 0], y = feats_2d_d[:, 1], name='',
+                            mode='markers',
+                            marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))], line=dict(width=2,
+                                        color=['White' for i in range(len(y))]), opacity=1.),
+                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
+            data = {
+                "method": method,
+                "number_of_clusters": n_clusters,
+                "features_type": feats_type,
+                # "clustering": labels 
+            }
         
         return fig, round(scores[0],3), round(scores[1]), round(scores[2],3), data
-
-    # @app.callback(
-    #     [Output('dropdown_total_cluster_annotation','style'),
-    #      Output('btn_3', 'style')],
-    #     [Input('cluster_graph', 'clickData')]
-    # )
-    # def point_validation(click_data):
-    #     if click_data:
-
-    #         return {'display': 'block'}, {'display': 'block'}
-    #     else:
-    #         return {'display': 'none'}, {'display': 'none'}
-    
-    # @app.callback(
-    #     [Output('dropdown_total_cluster_annotation','style'),
-    #     ],
-    #     [Input('btn_3', 'n_clicks')]
-    # )
-    # def point_validation_2(n_clicks):
-    #     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
-    #     if 'btn_3' in changed_id:
-    #         return {'display': 'none'}
     
     @app.callback(
         Output('intermediate_val_syllables', 'children'),
@@ -612,10 +617,10 @@ if __name__ == "__main__":
             # options = jsbeautifier.default_options()
             # options.indent_size = 2
 
-            with open('annotations.json', 'r') as infile:
+            with open('annotations_eval.json', 'r') as infile:
                 data=json.load(infile)
 
-            with open('annotations.json', 'w') as outfile:
+            with open('annotations_eval.json', 'w') as outfile:
                 ready = False
                 for i, point_ann in enumerate(data['point_annotations']):    
                     shared_items = {k: point_info[k] for k in point_info if k in point_ann and point_info[k] == point_ann[k]}
@@ -628,6 +633,7 @@ if __name__ == "__main__":
                 # x = jsbeautifier.beautify(json.dumps(data), options)
                 x = json.dumps(data, indent=2)
                 outfile.write(x)
+            return 'yes'
 
         return '{}'
 
@@ -645,10 +651,10 @@ if __name__ == "__main__":
             # options = jsbeautifier.default_options()
             # options.indent_size = 2
 
-            with open('annotations.json', 'r') as infile:
+            with open('annotations_eval.json', 'r') as infile:
                 data=json.load(infile)
             
-            with open('annotations.json', 'w') as outfile:
+            with open('annotations_eval.json', 'w') as outfile:
                 ready = False
                 info['class'] = int(labels[click_data['points'][0]['pointIndex']])
                 for i, cluster_ann in enumerate(data['cluster_annotations']):    
@@ -663,6 +669,7 @@ if __name__ == "__main__":
                 # x = jsbeautifier.beautify(json.dumps(data), options)
                 x = json.dumps(data, indent=2)
                 outfile.write(x)
+            return 'yes'
         return '{}'    
 
     @app.callback(
@@ -678,10 +685,10 @@ if __name__ == "__main__":
             # options = jsbeautifier.default_options()
             # options.indent_size = 2
 
-            with open('annotations.json', 'r') as infile:
+            with open('annotations_eval.json', 'r') as infile:
                 data=json.load(infile)
             
-            with open('annotations.json', 'w') as outfile:
+            with open('annotations_eval.json', 'w') as outfile:
                 ready = False
                 for i, total_cluster_ann in enumerate(data['total_cluster_annotations']):    
                     shared_items = {k: info[k] for k in info if k in total_cluster_ann and info[k] == total_cluster_ann[k]}
@@ -699,7 +706,7 @@ if __name__ == "__main__":
 
     @app.callback(
         Output('spectrogram', 'figure'),
-        [Input('cluster_graph', 'hoverData')]
+        [Input('cluster_graph', 'hoverData')],
     )
     def display_hover_data(hoverData):
         if hoverData:
@@ -707,15 +714,15 @@ if __name__ == "__main__":
         else:
             index = 0
         fig = go.Figure(data = go.Heatmap(x =sp_time[segments[index][0]:segments[index][1]], y=sp_freq[f1:f2], z = images[index].T, zmin = np.amin(images[index]), 
-                                          zmax = np.amax(images[index])+(np.amax(images[index])-np.amin(images[index])), showscale=False),
+                                        zmax = np.amax(images[index])+(np.amax(images[index])-np.amin(images[index])), showscale=False),
                         layout = go.Layout(title = 'Spectrogram of syllable', margin={'l': 0, 'b': 40, 't': 40, 'r': 0}, 
-                                           xaxis = dict(range=[(sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2-0.1, (sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2+0.1], 
+                                        xaxis = dict(range=[(sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2-0.1, (sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2+0.1], 
                                                         title = 'Time (Sec)'), yaxis=dict(range = [sp_freq[0], sp_freq[-1]], title='Freq (Hz)')))
         return fig
 
     @app.callback(
         Output('contour_plot', 'figure'),
-        [Input('cluster_graph', 'hoverData')]
+        [Input('cluster_graph', 'hoverData')],
     )
     def display_hover_data(hoverData):
         if hoverData:
@@ -724,7 +731,7 @@ if __name__ == "__main__":
             index = 0
         fig = go.Figure(data = go.Scatter(x = list_contour[index][0], y=list_contour[index][1], mode='lines+markers'), 
                         layout = go.Layout(title = 'Points of max frequency per time window of syllable', margin=dict(l=0, r=0, b=40, t=40, pad=4), 
-                                           xaxis=dict(visible=True, title = 'Time (Sec)'), yaxis=dict(visible=True, autorange=False, range=[sp_freq[0], sp_freq[-1]], title='Freq (Hz)')))
+                                        xaxis=dict(visible=True, title = 'Time (Sec)'), yaxis=dict(visible=True, autorange=False, range=[sp_freq[0], sp_freq[-1]], title='Freq (Hz)')))
 
         return fig
 
