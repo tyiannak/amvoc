@@ -226,7 +226,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
     # print(statistics.median(np.var(features, axis = 0)))
     # print(np.mean(np.var(features, axis = 0)))
     # print(np.where(np.var(features,axis=0) < np.mean(np.var(features, axis=0))))
-    selector = VarianceThreshold(threshold=(1*np.mean(np.var(features, axis = 0))))
+    selector = VarianceThreshold(threshold=(1.2*np.mean(np.var(features, axis = 0))))
     # selector = VarianceThreshold(threshold=(hist[1][np.argmax(hist[0])+1]))
     # plt.hist(np.var(features, axis = 0))
     # plt.show()
@@ -241,19 +241,13 @@ def cluster_syllables(syllables, specgram, sp_freq,
         evar = pca.explained_variance_ratio_
         cum_evar = np.cumsum(evar)
         n_comp = np.where(cum_evar >= 0.95)
-        if not n_comp:
+        if not list(n_comp[0]):
             test = test + 50
         else:
             n_comp = n_comp[0][0] + 1
             break
-    # print(n_comp)
     pca = PCA(n_components=n_comp)
     features = pca.fit_transform(features)
-    # plt.figure()
-    # plt.xlabel("Principal Component number")
-    # plt.ylabel('Cumulative Variance')
-    # plt.plot(cum_evar, linewidth=2)
-    # plt.show()
     features_d = features
     
     return list(init_images), countour_points, \
@@ -274,26 +268,26 @@ def clustering(method, n_clusters, features):
         clusterer =  AgglomerativeClustering(n_clusters=n_clusters)
         y, scores = cluster_help(clusterer, features, n_clusters)
     elif method == 'birch':
-        thresholds = np.arange(0.1,2.1,0.2)
-        sil_scores, ch_scores, db_scores = [], [], []
-        #Choosing the best threshold based on metrics results
-        for thres in thresholds:
-            clusterer = Birch(threshold = thres, n_clusters=n_clusters)
-            y, scores = cluster_help(clusterer,features, n_clusters)
-            #Stop checking bigger values of threshold
-            if len(np.unique(y)) < n_clusters:
-                break
-            sil_scores.append(scores[0])
-            ch_scores.append(scores[1])
-            db_scores.append(scores[2])
+        # thresholds = np.arange(0.1,2.1,0.2)
+        # sil_scores, ch_scores, db_scores = [], [], []
+        # #Choosing the best threshold based on metrics results
+        # for thres in thresholds:
+        #     clusterer = Birch(threshold = thres, n_clusters=n_clusters)
+        #     y, scores = cluster_help(clusterer,features, n_clusters)
+        #     #Stop checking bigger values of threshold
+        #     if len(np.unique(y)) < n_clusters:
+        #         break
+        #     sil_scores.append(scores[0])
+        #     ch_scores.append(scores[1])
+        #     db_scores.append(scores[2])
 
-        sil_ind = np.argsort(np.argsort(sil_scores))
-        ch_ind = np.argsort(np.argsort(ch_scores))
-        db_ind = np.argsort(np.argsort(db_scores))
-        sum = sil_ind + ch_ind- db_ind
-        thres = thresholds[np.argmax(sum)]
-        scores = [sil_scores[np.argmax(sum)], ch_scores[np.argmax(sum)], db_scores[np.argmax(sum)]]
-        clusterer = Birch(threshold = thres, n_clusters = n_clusters)
+        # sil_ind = np.argsort(np.argsort(sil_scores))
+        # ch_ind = np.argsort(np.argsort(ch_scores))
+        # db_ind = np.argsort(np.argsort(db_scores))
+        # sum = sil_ind + ch_ind- db_ind
+        # thres = thresholds[np.argmax(sum)]
+        # scores = [sil_scores[np.argmax(sum)], ch_scores[np.argmax(sum)], db_scores[np.argmax(sum)]]
+        clusterer = Birch(n_clusters = n_clusters)
         y, scores = cluster_help(clusterer,features, n_clusters)
     elif method == 'gmm':
         clusterer = GaussianMixture(n_components=n_clusters, random_state=9)
@@ -304,8 +298,8 @@ def clustering(method, n_clusters, features):
     elif method == 'mbkmeans':
         clusterer = MiniBatchKMeans(n_clusters = n_clusters, random_state=9)
         y, scores = cluster_help(clusterer, features, n_clusters)
-    elif method == 'spec':
-        clusterer = SpectralClustering(n_clusters = n_clusters, random_state=9)
-        y, scores = cluster_help(clusterer, features, n_clusters)
+    # elif method == 'spec':
+    #     clusterer = SpectralClustering(n_clusters = n_clusters, random_state=9)
+    #     y, scores = cluster_help(clusterer, features, n_clusters)
 
     return y, scores 

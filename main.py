@@ -14,6 +14,7 @@ import dash_html_components as html
 import numpy as np
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output, State
+from dash_table import DataTable
 import audio_process as ap
 import audio_recognize as ar
 import json
@@ -245,7 +246,7 @@ def get_layout(spec):
                             {'label': 'Gaussian Mixture', 'value': 'gmm'},
                             {'label': 'K-Means', 'value': 'kmeans'},
                             {'label': 'Mini-Batch K-Means', 'value': 'mbkmeans'},
-                            {'label': 'Spectral', 'value': 'spec'},
+                            # {'label': 'Spectral', 'value': 'spec'},
                         ], value='agg'
                     ),
                     width=2,
@@ -328,15 +329,21 @@ def get_layout(spec):
                     style={'display': 'block'}
             ),
             ]),
-            dbc.Row(dbc.Col(
-                dcc.Graph(id='cluster_graph')
-            )),
             dbc.Row([dbc.Col(
-            dcc.Graph(id='spectrogram', hoverData = {'points': [{'pointIndex': 0}]}),width = 6
+                dcc.Graph(id='cluster_graph'), width = 9, style={'marginLeft': 0}),
+                 dbc.Col(
+                    html.Div(children=[html.Div([ DataTable(id='total_annotation', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},
+                    columns = [{'id': 'Global annotation', 'name': 'Global annotation'} ])],style={'marginBottom':10}),
+                    DataTable(id='cluster_table', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},columns = [{'id': column, 'name': column} for column in ['Clusters', 'Cluster annotation', 'Annotated points']])]),
+                    style = {'marginTop':10, 'marginLeft': 5}, width ='25%', 
+            ), 
+            ],justify='start'),
+            dbc.Row([dbc.Col(
+            dcc.Graph(id='spectrogram', hoverData = {'points': [{'pointIndex': 0}]}),width = 6, style= {'marginTop': 30}
             
             ), 
             dbc.Col(
-                dcc.Graph(id='contour_plot', hoverData = {'points': [{'pointIndex': 0}]}), width = 6
+                dcc.Graph(id='contour_plot', hoverData = {'points': [{'pointIndex': 0}]}), width = 6, style={'marginTop': 30}
             )]),
             # these are intermediate values to be used for sharing content
             # between callbacks
@@ -361,7 +368,7 @@ def get_layout(spec):
                             {'label': 'Gaussian Mixture', 'value': 'gmm'},
                             {'label': 'K-Means', 'value': 'kmeans'},
                             {'label': 'Mini-Batch K-Means', 'value': 'mbkmeans'},
-                            {'label': 'Spectral', 'value': 'spec'},
+                            # {'label': 'Spectral', 'value': 'spec'},
                         ], value='agg'
                     ),
                     width=2,
@@ -444,15 +451,20 @@ def get_layout(spec):
                     style={'display': 'block'}
             ),
             ]),
-            dbc.Row(dbc.Col(
-                dcc.Graph(id='cluster_graph')
-            )),
             dbc.Row([dbc.Col(
-            dcc.Graph(id='spectrogram', hoverData = {'points': [{'pointIndex': 0}]}),width = 6
-            
+                dcc.Graph(id='cluster_graph'), width = 9, style={'marginLeft': 0}),
+                 dbc.Col(
+                    html.Div(children=[html.Div([ DataTable(id='total_annotation', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},
+                    columns = [{'id': 'Global annotation', 'name': 'Global annotation'} ])],style={'marginBottom':10}),
+                    DataTable(id='cluster_table', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},columns = [{'id': column, 'name': column} for column in ['Clusters', 'Cluster annotation', 'Annotated points']])]),
+                    style = {'marginTop':10, 'marginLeft': 5}, width ='25%', 
+            ), 
+            ],justify='start'),
+            dbc.Row([dbc.Col(
+            dcc.Graph(id='spectrogram', hoverData = {'points': [{'pointIndex': 0}]}),width = 6, style={'marginTop': 20}
             ), 
             dbc.Col(
-                dcc.Graph(id='contour_plot', hoverData = {'points': [{'pointIndex': 0}]}), width = 6
+                dcc.Graph(id='contour_plot', hoverData = {'points': [{'pointIndex': 0}]}), width = 6, style={'marginTop': 20}
             )]),
             # these are intermediate values to be used for sharing content
             # between callbacks
@@ -550,17 +562,21 @@ if __name__ == "__main__":
          State('dav-bould', 'children'),
          State('clustering_info', 'children'),
          State('cluster_graph', 'clickData'),
-         State('cluster_graph', 'figure')
+         State('cluster_graph', 'figure'),
         ])
     def update_cluster_graph(method, n_clusters, feats_type, n_clicks_3, sil, cal_har, dav_bould, clust_info, click_data, fig):
         global labels,click_index
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if 'intermediate_val_syllables.children' in changed_id:
-            if click_data and  n_clicks_3=='yes':
+            if click_data and (n_clicks_3=='approve' or n_clicks_3=='reject'):
                 index=click_data['points'][0]['pointIndex']
                 fig['data'][0]['marker']['size'][index]=10
-                fig['data'][0]['marker']['line']['color'][index]='DarkSlateGrey'
+                if n_clicks_3 == 'approve':
+                    fig['data'][0]['marker']['line']['color'][index]='Green'
+                else:
+                    fig['data'][0]['marker']['line']['color'][index]='Red'
                 click_index = -1
+                # table[int(labels[index])]['Num of annotated points'] +=1
                 return fig, sil, cal_har, dav_bould, clust_info
             elif click_data:
                 index=click_data['points'][0]['pointIndex']
@@ -577,7 +593,8 @@ if __name__ == "__main__":
                             mode='markers',
                             marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))], line=dict(width=2,
                                         color=['White' for i in range(len(y))]), opacity=1.),
-                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
+                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'), 
+                            margin=dict(l=0, r=5), ))
             elif feats_type == 'deep':
                 y, scores = ar.clustering(method, n_clusters, feats_deep)
                 labels = y
@@ -585,15 +602,84 @@ if __name__ == "__main__":
                             mode='markers',
                             marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))], line=dict(width=2,
                                         color=['White' for i in range(len(y))]), opacity=1.),
-                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y')))
+                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'),
+                            margin=dict(l=0, r=5), ))
             data = {
                 "method": method,
                 "number_of_clusters": n_clusters,
                 "features_type": feats_type,
                 # "clustering": labels 
             }
+            fig = fig.to_dict()
+            with open('annotations_eval.json', 'r') as infile:
+                loaded_data=json.load(infile)
+            for annotation in loaded_data['point_annotations']:
+                if annotation['method'] == method and annotation['number_of_clusters'] == n_clusters and annotation['features_type']==feats_type:
+                    index=annotation['index']
+                    fig['data'][0]['marker']['size'][index]=10
+                    if annotation['annotation'] == 'approve':
+                        fig['data'][0]['marker']['line']['color'][index]='Green'
+                    else:
+                        fig['data'][0]['marker']['line']['color'][index]='Red'
         
         return fig, round(scores[0],3), round(scores[1]), round(scores[2],3), data
+
+    @app.callback(
+        [Output('cluster_table', 'data'),
+         Output('total_annotation', 'data')],
+        [Input('dropdown_cluster', 'value'),
+         Input('dropdown_n_clusters', 'value'),
+         Input('dropdown_feats_type', 'value'), 
+         Input('intermediate_val_total_clusters', 'children'),
+         Input('intermediate_val_clusters', 'children'),
+         Input('intermediate_val_syllables', 'children'),],
+        [State('cluster_graph', 'clickData'),
+         State('cluster_table', 'data'),
+         State('total_annotation', 'data')
+        ])
+    def update_cluster_table(method, n_clusters, feats_type, n_clicks_1, n_clicks_2, n_clicks_3, click_data, table, total):
+        global labels
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+        if 'intermediate_val_syllables.children' in changed_id:
+            if click_data and  n_clicks_3!='{}':
+                index=click_data['points'][0]['pointIndex']
+                table[int(labels[index])]['Annotated points'] +=1
+                return table, total
+            elif click_data:
+                return table, total
+        elif 'intermediate_val_clusters.children' in changed_id:
+            if click_data and  n_clicks_2!='{}':
+                index=click_data['points'][0]['pointIndex']
+                table[int(labels[index])]['Cluster annotation'] = int(n_clicks_2)
+                return table, total
+            elif click_data:
+                return table, total
+        elif 'intermediate_val_total_clusters.children' in changed_id:
+            if n_clicks_1!='{}':
+                return table, [{'Global annotation': int(n_clicks_1)}]
+            else:
+                return table, total
+        else:
+            with open('annotations_eval.json', 'r') as infile:
+                loaded_data=json.load(infile)
+            cnt = [0 for i in range(n_clusters)]
+            for annotation in loaded_data['point_annotations']:
+                if annotation['method'] == method and annotation['number_of_clusters'] == n_clusters and annotation['features_type']==feats_type:
+                    cnt[int(annotation['class'])] += 1
+            cluster_score = ['-' for i in range(n_clusters)]
+            for annotation in loaded_data['cluster_annotations']:
+                if annotation['method'] == method and annotation['number_of_clusters'] == n_clusters and annotation['features_type']==feats_type:
+                    cluster_score[int(annotation['class'])] = annotation['annotation']
+
+            total = '-'
+            for annotation in loaded_data['total_cluster_annotations']:
+                if annotation['method'] == method and annotation['number_of_clusters'] == n_clusters and annotation['features_type']==feats_type:
+                    total = annotation['annotation']
+                    break
+            table = [{'Clusters':'cluster {}'.format(i), 'Cluster annotation': cluster_score[i], 'Annotated points': cnt[i]} for i in range (n_clusters)]
+            total = [{'Global annotation': total}]
+        return table, total
+
     
     @app.callback(
         Output('intermediate_val_syllables', 'children'),
@@ -633,7 +719,7 @@ if __name__ == "__main__":
                 # x = jsbeautifier.beautify(json.dumps(data), options)
                 x = json.dumps(data, indent=2)
                 outfile.write(x)
-            return 'yes'
+            return val
 
         return '{}'
 
@@ -669,7 +755,7 @@ if __name__ == "__main__":
                 # x = jsbeautifier.beautify(json.dumps(data), options)
                 x = json.dumps(data, indent=2)
                 outfile.write(x)
-            return 'yes'
+            return val
         return '{}'    
 
     @app.callback(
@@ -702,6 +788,7 @@ if __name__ == "__main__":
                 # x = jsbeautifier.beautify(json.dumps(data), options)
                 x = json.dumps(data, indent=2)
                 outfile.write(x)
+            return val
         return '{}'    
 
     @app.callback(
