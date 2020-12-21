@@ -13,7 +13,7 @@ pip3 install -r requirements.txt
 The main GUI for analyzing mouse sounds is in the `main.py`. 
 It takes the WAV filename in which the recording to analyze is stored.
 Also, the user has to declare whether or not the spectrogram of the whole input signal 
-should be created and displayed in the app (choice -s). If the spectrogram is to be displayed
+should be created and displayed in the app (option -s). If the spectrogram is to be displayed
 (not recommended for large wavfiles),
 the user should choose one of the following options: -s 1 or -s True or -s true.
 Otherwise, available options are: -s 0 or -s False or -s false.
