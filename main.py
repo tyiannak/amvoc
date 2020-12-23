@@ -24,7 +24,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import json
 # import jsbeautifier
@@ -263,9 +263,9 @@ def get_layout(spec):
                     dcc.Dropdown(
                         id='dropdown_feats_type',
                         options=[
-                            {'label': 'Simple', 'value': 'simple'},
-                            {'label': 'Deep', 'value': 'deep'},
-                        ], value='simple'
+                            {'label': 'Method 1', 'value': 'deep'},
+                            {'label': 'Method 2', 'value': 'simple'},
+                        ], value='deep'
                     ),
                     width=2,
                 ),
@@ -285,7 +285,7 @@ def get_layout(spec):
                         id='dropdown_total_cluster_annotation',
                         options=[
                             {'label': 'No Validation', 'value': 'no'}]+
-                            [{'label': i, 'value': i} for i in np.arange(10,110,10)], value = 'no'
+                            [{'label': i, 'value': i} for i in np.arange(1,6)], value = 'no'
                     ),
                     width=2,
                     style={'display': 'block'}
@@ -301,7 +301,7 @@ def get_layout(spec):
                         id='dropdown_cluster_annotation',
                         options=[
                             {'label': 'No Validation', 'value': 'no'}]+
-                            [{'label': i, 'value': i} for i in np.arange(10,110,10)], value = 'no'
+                            [{'label': i, 'value': i} for i in np.arange(1,6)], value = 'no'
                     ),
                     width=2,
                     style={'display': 'block'}
@@ -385,9 +385,9 @@ def get_layout(spec):
                     dcc.Dropdown(
                         id='dropdown_feats_type',
                         options=[
-                            {'label': 'Simple', 'value': 'simple'},
-                            {'label': 'Deep', 'value': 'deep'},
-                        ], value='simple'
+                            {'label': 'Method 1', 'value': 'deep'},
+                            {'label': 'Method 2', 'value': 'simple'},
+                        ], value='deep'
                     ),
                     width=2,
                 ),
@@ -407,7 +407,7 @@ def get_layout(spec):
                         id='dropdown_total_cluster_annotation',
                         options=[
                             {'label': 'No Validation', 'value': 'no'}]+
-                            [{'label': i, 'value': i} for i in np.arange(10,110,10)], value = 'no'
+                            [{'label': i, 'value': i} for i in np.arange(1,6)], value = 'no'
                     ),
                     width=2,
                     style={'display': 'block'}
@@ -423,7 +423,7 @@ def get_layout(spec):
                         id='dropdown_cluster_annotation',
                         options=[
                             {'label': 'No Validation', 'value': 'no'}]+
-                            [{'label': i, 'value': i} for i in np.arange(10,110,10)], value = 'no'
+                            [{'label': i, 'value': i} for i in np.arange(1,6)], value = 'no'
                     ),
                     width=2,
                     style={'display': 'block'}
@@ -592,17 +592,17 @@ if __name__ == "__main__":
                 fig = go.Figure(data = go.Scatter(x = feats_2d_s[:, 0], y = feats_2d_s[:, 1], name='',
                             mode='markers',
                             marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))], line=dict(width=2,
-                                        color=['White' for i in range(len(y))]), opacity=1.),
-                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'), 
+                                        color=['White' for i in range(len(y))]), opacity=1.),text = ['cluster {}'.format(y[i]) for i in range (len(y))],
+                            showlegend=True),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'), 
                             margin=dict(l=0, r=5), ))
             elif feats_type == 'deep':
                 y, scores = ar.clustering(method, n_clusters, feats_deep)
                 labels = y
                 fig = go.Figure(data = go.Scatter(x = feats_2d_d[:, 0], y = feats_2d_d[:, 1], name='',
                             mode='markers',
-                            marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))], line=dict(width=2,
-                                        color=['White' for i in range(len(y))]), opacity=1.),
-                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'),
+                            marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))],  line=dict(width=2,
+                                        color=['White' for i in range(len(y))]), opacity=1.),text = ['cluster {}'.format(y[i]) for i in range (len(y))],
+                            showlegend=True),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'),
                             margin=dict(l=0, r=5), ))
             data = {
                 "method": method,
@@ -691,14 +691,15 @@ if __name__ == "__main__":
     def point_annotation(click_data, val, info, n_clicks):
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if click_data and (val=='approve' or val=='reject') and 'btn_1' in changed_id:
-            fig = plt.figure()
-            plt.imshow(images[click_data['points'][0]['pointIndex']].T)
-            plt.savefig('spec_{}.png'.format(click_data['points'][0]['pointIndex']))
-            plt.close(fig)
+            # fig = plt.figure()
+            # plt.imshow(images[click_data['points'][0]['pointIndex']].T)
+            # plt.savefig('spec_{}.png'.format(click_data['points'][0]['pointIndex']))
+            # plt.close(fig)
             point_info = {'index': click_data['points'][0]['pointIndex'] , 
                           'class': int(labels[click_data['points'][0]['pointIndex']]), 
                           'start time': syllables[click_data['points'][0]['pointIndex']]['st'], 'end time': syllables[click_data['points'][0]['pointIndex']]['et'],
-                          'spec_file': 'spec_{}.png'.format(click_data['points'][0]['pointIndex']), 'annotation': val}
+                        #   'spec_file': 'spec_{}.png'.format(click_data['points'][0]['pointIndex']), 
+                          'annotation': val}
             point_info = {**point_info, **info}
             # options = jsbeautifier.default_options()
             # options.indent_size = 2
@@ -800,8 +801,9 @@ if __name__ == "__main__":
             index = hoverData['points'][0]['pointIndex']
         else:
             index = 0
-        fig = go.Figure(data = go.Heatmap(x =sp_time[segments[index][0]:segments[index][1]], y=sp_freq[f1:f2], z = images[index].T, zmin = np.amin(images[index]), 
-                                        zmax = np.amax(images[index])+(np.amax(images[index])-np.amin(images[index])), showscale=False),
+        fig = go.Figure(data = go.Heatmap(x =sp_time[segments[index][0]:segments[index][1]], y=sp_freq[f1:f2], z = (images[index].T)/np.amax(images[index]), 
+        # zmin = np.amin(images[index]), zmax = np.amax(images[index])+(np.amax(images[index])-np.amin(images[index])), 
+        showscale=False),
                         layout = go.Layout(title = 'Spectrogram of syllable', margin={'l': 0, 'b': 40, 't': 40, 'r': 0}, 
                                         xaxis = dict(range=[(sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2-0.1, (sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2+0.1], 
                                                         title = 'Time (Sec)'), yaxis=dict(range = [sp_freq[0], sp_freq[-1]], title='Freq (Hz)')))

@@ -1,26 +1,6 @@
 {
-  "input_file": "dir_ur_comp_stim.wav",
-  "total_cluster_annotations": [],
-  "cluster_annotations": [
-    {
-      "method": "kmeans",
-      "number_of_clusters": 5,
-      "features_type": "deep",
-      "class": 4,
-      "annotation": 80
-    }
-  ],
-  "point_annotations": [
-    {
-      "index": 1313,
-      "class": 4,
-      "start time": 493.368,
-      "end time": 493.456,
-      "spec_file": "spec_1313.png",
-      "annotation": "approve",
-      "method": "kmeans",
-      "number_of_clusters": 5,
-      "features_type": "deep"
-    }
-  ]
+    "input_file": "dir_fe_comp_stim_test_1.wav",
+    "total_cluster_annotations": [],
+    "cluster_annotations": [],
+    "point_annotations": []
 }

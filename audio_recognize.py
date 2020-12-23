@@ -57,8 +57,11 @@ def cluster_syllables(syllables, specgram, sp_freq,
     max_dur = 0
     test = []
     syllables_final = []
-    high_thres = 0.015
-    low_thres = 0.006
+    # high_thres = 0.015
+    # low_thres = 0.006
+    # print(len(specgram))
+    # print(len(syllables))
+    kmeans_centers = np.load('kmeans_centers.npy')
     for syl in syllables:
         # for each detected syllable (vocalization)
 
@@ -74,9 +77,16 @@ def cluster_syllables(syllables, specgram, sp_freq,
         if train:
             images.append(cur_image)
             continue
-
-        if abs((np.var(temp_image)) - low_thres) >= abs(high_thres - np.var(temp_image)):
+        vec = [np.mean(temp_image),np.var(temp_image), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))]
+        if np.linalg.norm(vec-kmeans_centers[1]) < np.linalg.norm(vec-kmeans_centers[0]):
+            # print(mentemp_image)
+            # print([start, end])
+            # plt.imshow(temp_image.T)
+            # plt.show()
             continue
+        # if check:
+        #     syllables_final.append(syl)
+        #     continue
         images.append(cur_image)
         segments.append([start,end])
         syllables_final.append(syl)
@@ -155,6 +165,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
         features_s.append(cur_features)
     if train:
         return images
+
     features_s = MinMaxScaler().fit_transform(features_s)  
 
     feature_names = ["duration",
@@ -166,9 +177,9 @@ def cluster_syllables(syllables, specgram, sp_freq,
 
     init_images = np.array(images, dtype = object)
 
-    duration = []
-    for image in images:
-        duration.append(image.shape[0])
+    # duration = []
+    # for image in images:
+    #     duration.append(image.shape[0])
     # print(duration)
     # plt.hist(duration, bins = range(min(duration), 100))
     # plt.show()
@@ -232,11 +243,11 @@ def cluster_syllables(syllables, specgram, sp_freq,
     # plt.show()
     features = selector.fit_transform(features)
     features = StandardScaler().fit_transform(features)
-    
-    test = min(100,features.shape[0])
+    # print(features.shape)
+    test = min(100,features.shape[0], features.shape[1])
     n_comp = 0
     while (1):
-        pca = PCA(n_components=test)
+        pca = PCA(n_components=test, random_state=9)
         pca.fit(features)
         evar = pca.explained_variance_ratio_
         cum_evar = np.cumsum(evar)
@@ -246,7 +257,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
         else:
             n_comp = n_comp[0][0] + 1
             break
-    pca = PCA(n_components=n_comp)
+    pca = PCA(n_components=n_comp, random_state=9)
     features = pca.fit_transform(features)
     features_d = features
     
