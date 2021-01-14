@@ -61,7 +61,8 @@ def cluster_syllables(syllables, specgram, sp_freq,
     # low_thres = 0.006
     # print(len(specgram))
     # print(len(syllables))
-    kmeans_centers = np.load('kmeans_centers.npy')
+    if not train:
+        kmeans_centers = np.load('kmeans_centers.npy')
     for syl in syllables:
         # for each detected syllable (vocalization)
 
@@ -166,7 +167,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
     if train:
         return images
 
-    features_s = MinMaxScaler().fit_transform(features_s)  
+    features_s = StandardScaler().fit_transform(features_s)  
 
     feature_names = ["duration",
                     "min_freq", "max_freq", "mean_freq",

@@ -324,12 +324,12 @@ def get_layout(spec):
             ),
             ]),
             dbc.Row([dbc.Col(
-                dcc.Graph(id='cluster_graph'), width = 9, style={'marginLeft': 0}),
+                dcc.Graph(id='cluster_graph'), width = 9, md = 8, style={'marginLeft': 0}),
                  dbc.Col(
                     html.Div(children=[html.Div([ DataTable(id='total_annotation', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},
                     columns = [{'id': 'Global annotation', 'name': 'Global annotation'} ])],style={'marginBottom':10}),
                     DataTable(id='cluster_table', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},columns = [{'id': column, 'name': column} for column in ['Clusters', 'Cluster annotation', 'Annotated points']])]),
-                    style = {'marginTop':10, 'marginLeft': 5}, width ='25%', 
+                    style = {'marginTop':10, 'marginLeft': 5, 'marginRight':0}, width ='25%', 
             ), 
             ],justify='start'),
             dbc.Row([dbc.Col(
@@ -446,12 +446,12 @@ def get_layout(spec):
             ),
             ]),
             dbc.Row([dbc.Col(
-                dcc.Graph(id='cluster_graph'), width = 9, style={'marginLeft': 0}),
+                dcc.Graph(id='cluster_graph'), width = 9, md = 8, style={'marginLeft': 0}),
                  dbc.Col(
                     html.Div(children=[html.Div([ DataTable(id='total_annotation', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},
                     columns = [{'id': 'Global annotation', 'name': 'Global annotation'} ])],style={'marginBottom':10}),
                     DataTable(id='cluster_table', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},columns = [{'id': column, 'name': column} for column in ['Clusters', 'Cluster annotation', 'Annotated points']])]),
-                    style = {'marginTop':10, 'marginLeft': 5}, width ='25%', 
+                    style = {'marginTop':10, 'marginLeft': 5, 'marginRight': 0}, width ='25%', 
             ), 
             ],justify='start'),
             dbc.Row([dbc.Col(
@@ -479,7 +479,7 @@ if __name__ == "__main__":
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
                                                            ST_WIN, ST_STEP)
 
-    with open('annotations_eval.json', 'w') as outfile:
+    with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
         x = json.dumps({'input_file': args.input_file.split('/')[-1], 'total_cluster_annotations': [], 'cluster_annotations': [], 'point_annotations': []}, indent=4)
         outfile.write(x)
     # These should change depending on the signal's size
@@ -587,7 +587,7 @@ if __name__ == "__main__":
                             mode='markers',
                             marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))], line=dict(width=2,
                                         color=['White' for i in range(len(y))]), opacity=1.),text = ['cluster {}'.format(y[i]) for i in range (len(y))],
-                            showlegend=True),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'), 
+                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'), 
                             margin=dict(l=0, r=5), ))
             elif feats_type == 'deep':
                 y, scores = ar.clustering(method, n_clusters, feats_deep)
@@ -596,7 +596,7 @@ if __name__ == "__main__":
                             mode='markers',
                             marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))],  line=dict(width=2,
                                         color=['White' for i in range(len(y))]), opacity=1.),text = ['cluster {}'.format(y[i]) for i in range (len(y))],
-                            showlegend=True),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'),
+                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'),
                             margin=dict(l=0, r=5), ))
             data = {
                 "method": method,
@@ -605,7 +605,7 @@ if __name__ == "__main__":
                 # "clustering": labels 
             }
             fig = fig.to_dict()
-            with open('annotations_eval.json', 'r') as infile:
+            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 loaded_data=json.load(infile)
             for annotation in loaded_data['point_annotations']:
                 if annotation['method'] == method and annotation['number_of_clusters'] == n_clusters and annotation['features_type']==feats_type:
@@ -654,7 +654,7 @@ if __name__ == "__main__":
             else:
                 return table, total
         else:
-            with open('annotations_eval.json', 'r') as infile:
+            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 loaded_data=json.load(infile)
             cnt = [0 for i in range(n_clusters)]
             for annotation in loaded_data['point_annotations']:
@@ -698,10 +698,10 @@ if __name__ == "__main__":
             # options = jsbeautifier.default_options()
             # options.indent_size = 2
 
-            with open('annotations_eval.json', 'r') as infile:
+            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 data=json.load(infile)
 
-            with open('annotations_eval.json', 'w') as outfile:
+            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
                 ready = False
                 for i, point_ann in enumerate(data['point_annotations']):    
                     shared_items = {k: point_info[k] for k in point_info if k in point_ann and point_info[k] == point_ann[k]}
@@ -732,10 +732,10 @@ if __name__ == "__main__":
             # options = jsbeautifier.default_options()
             # options.indent_size = 2
 
-            with open('annotations_eval.json', 'r') as infile:
+            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 data=json.load(infile)
             
-            with open('annotations_eval.json', 'w') as outfile:
+            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
                 ready = False
                 info['class'] = int(labels[click_data['points'][0]['pointIndex']])
                 for i, cluster_ann in enumerate(data['cluster_annotations']):    
@@ -766,10 +766,10 @@ if __name__ == "__main__":
             # options = jsbeautifier.default_options()
             # options.indent_size = 2
 
-            with open('annotations_eval.json', 'r') as infile:
+            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 data=json.load(infile)
             
-            with open('annotations_eval.json', 'w') as outfile:
+            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
                 ready = False
                 for i, total_cluster_ann in enumerate(data['total_cluster_annotations']):    
                     shared_items = {k: info[k] for k in info if k in total_cluster_ann and info[k] == total_cluster_ann[k]}

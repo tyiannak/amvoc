@@ -125,7 +125,7 @@ if __name__ == '__main__':
     test = []
     # in order to classify the images, we use the following metrics
     for cur_image in train_data:
-        test.append([np.mean(cur_image/np.amax(cur_image)),np.var(cur_image), np.mean(cur_image-np.amax(cur_image))])
+        test.append([np.mean(cur_image/np.amax(cur_image)),np.var(cur_image/np.amax(cur_image)), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))])
 
     # clustering to split the two categories
     clusterer = KMeans(n_clusters=2)
