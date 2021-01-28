@@ -105,9 +105,8 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
                                                        mode="same") +
                                      0.5 * global_mean) / 100.0
     else:
-        threshold = threshold_per * (0.5 * np.mean(threshold_buf) +
-                                     0.5 * np.mean(spectral_en)) / 100.0
-
+        threshold = threshold_per * (0.4 * np.mean(threshold_buf[-50:]) + 
+                                    0.6 * np.mean(spectral_en)) / 100.0
 
     # Step 2: spectral energy ratio computation:
     C = 0.01

@@ -13,6 +13,7 @@ import scipy.io.wavfile as wavfile
 import audio_process as ap
 from pyAudioAnalysis import audioBasicIO as io
 import utils
+import matplotlib.pyplot as plt
 
 global fs
 global all_data
@@ -21,7 +22,7 @@ global wav_signal
 
 
 buff_size = 0.01  # recording buffer size in seconds
-mid_buffer_size = 1.0  # processing buffer size in seconds
+mid_buffer_size = 2.0 # processing buffer size in seconds
 
 config_data = utils.load_config("config.json")
 ST_WIN = config_data['params']['ST_WIN']
@@ -29,7 +30,7 @@ ST_STEP = config_data['params']['ST_STEP']
 MIN_VOC_DUR = config_data['params']['MIN_VOC_DUR']
 F1 = config_data['params']['F1']
 F2 = config_data['params']['F2']
-thres = config_data['params']['thres']
+thres = 0.7
 
 
 wav_signal = None
@@ -46,8 +47,7 @@ def signal_handler(signal, frame):
 
 
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(outstr+".wav",
-                                                           st_win, st_win)
-    print(spectrogram)
+                                                           ST_WIN, ST_STEP)
 
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
@@ -61,7 +61,7 @@ def signal_handler(signal, frame):
 
     seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                spectral_energy_1,
-                                               st_win,
+                                               ST_STEP,
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
     for s in seg_limits:
@@ -81,7 +81,6 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
     input_file = args.input_file
-    print(input_file)
     global fs
     if input_file:
         fs, wav_signal = io.read_audio_file(input_file)
@@ -108,6 +107,9 @@ if __name__ == "__main__":
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
 
+    with open("debug_realtime.csv", "w") as fp:
+        pass
+
     while 1:  # for each recorded window (until ctr+c) is pressed
         if wav_signal is None:
             # get current block and convert to list of short ints,
@@ -132,8 +134,8 @@ if __name__ == "__main__":
             print(len(mid_buffer))
             spectrogram, sp_time, sp_freq, _  = ap.get_spectrogram_buffer(mid_buffer,
                                                                           fs,
-                                                                          st_win,
-                                                                          st_win)
+                                                                          ST_WIN,
+                                                                          ST_STEP)
 
             # define feature sequence for vocalization detection
             f1 = np.argmin(np.abs(sp_freq - f_low))
@@ -145,11 +147,34 @@ if __name__ == "__main__":
             means.append(spectral_energy_2.mean())
             seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                        spectral_energy_1,
-                                                       st_win,
+                                                       ST_STEP,
                                                        threshold_per=thres * 100,
                                                        min_duration=MIN_VOC_DUR,
                                                        threshold_buf = means)
+            kmeans_centers = np.load('kmeans_centers.npy')
+            win = ST_STEP
             for s in seg_limits:
+
+                # for each detected syllable (vocalization)
+
+                # A. get the spectrogram area in the defined frequency range
+                start = int(s[0] / win)
+                end = int(s[1] / win)
+                
+                # np.save('segments.npy', segments)
+                cur_image = spectrogram[start:end, f1:f2]
+                if cur_image.shape[0]==0 or cur_image.shape[1]==0:
+                    continue
+                temp_image = cur_image/np.amax(cur_image)
+
+                vec = [np.mean(temp_image),np.var(temp_image), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))]
+                if np.linalg.norm(vec-kmeans_centers[1]) < np.linalg.norm(vec-kmeans_centers[0]):
+                    # print(mentemp_image)
+                    # print([start, end])
+                    # plt.imshow(temp_image.T)
+                    # plt.show()
+                    continue
+
                 with open("debug_realtime.csv", "a") as fp:
                     fp.write(f'{count_mid_bufs * mid_buffer_size + s[0]},'
                              f'{count_mid_bufs * mid_buffer_size + s[1]}\n')
