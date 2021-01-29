@@ -145,12 +145,15 @@ if __name__ == "__main__":
             spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
 
             means.append(spectral_energy_2.mean())
+            time_sec = 100
             seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                        spectral_energy_1,
                                                        ST_STEP,
                                                        threshold_per=thres * 100,
                                                        min_duration=MIN_VOC_DUR,
-                                                       threshold_buf = means)
+                                                       threshold_buf = means,
+                                                    #    prev_time_frames=int(time_sec/mid_buffer_size)
+                                                       )
             kmeans_centers = np.load('kmeans_centers.npy')
             win = ST_STEP
             for s in seg_limits:
@@ -183,5 +186,5 @@ if __name__ == "__main__":
             count_mid_bufs += 1
 
         count_bufs += 1
-
+    # print(means)
 
