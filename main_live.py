@@ -22,7 +22,7 @@ global wav_signal
 
 
 buff_size = 0.01  # recording buffer size in seconds
-mid_buffer_size = 2.0 # processing buffer size in seconds
+mid_buffer_size = 0.5 # processing buffer size in seconds
 
 config_data = utils.load_config("config.json")
 ST_WIN = config_data['params']['ST_WIN']
@@ -86,7 +86,6 @@ if __name__ == "__main__":
         fs, wav_signal = io.read_audio_file(input_file)
     else:
         fs = 44100
-
     signal.signal(signal.SIGINT, signal_handler)
 
     all_data = []
