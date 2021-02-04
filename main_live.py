@@ -130,12 +130,15 @@ if __name__ == "__main__":
         mid_buffer += shorts_list
         if len(mid_buffer) >= int(mid_buffer_size * fs):
             # get spectrogram:
-            print(len(mid_buffer))
+            # print(len(mid_buffer))
             spectrogram, sp_time, sp_freq, _  = ap.get_spectrogram_buffer(mid_buffer,
                                                                           fs,
                                                                           ST_WIN,
                                                                           ST_STEP)
-
+            # print(spectrogram)
+            # plt.imshow(spectrogram)
+            # plt.show()
+            
             # define feature sequence for vocalization detection
             f1 = np.argmin(np.abs(sp_freq - f_low))
             f2 = np.argmin(np.abs(sp_freq - f_high))
@@ -176,7 +179,7 @@ if __name__ == "__main__":
                     # plt.imshow(temp_image.T)
                     # plt.show()
                     continue
-
+                print([count_mid_bufs * mid_buffer_size + s[0], count_mid_bufs * mid_buffer_size + s[1]])
                 with open("debug_realtime.csv", "a") as fp:
                     fp.write(f'{count_mid_bufs * mid_buffer_size + s[0]},'
                              f'{count_mid_bufs * mid_buffer_size + s[1]}\n')
