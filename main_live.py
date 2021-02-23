@@ -15,6 +15,7 @@ from pyAudioAnalysis import audioBasicIO as io
 import utils
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
+import sounddevice as sd
 
 global fs
 global all_data
@@ -86,8 +87,11 @@ if __name__ == "__main__":
     global fs
     if input_file:
         fs, wav_signal = io.read_audio_file(input_file)
+    # else:
+    #     fs = 44100
     else:
-        fs = 44100
+        input_Fs = input("Input desired recording frequency (in Hz): ")
+        fs = int(input_Fs)
     signal.signal(signal.SIGINT, signal_handler)
 
     all_data = []
@@ -97,11 +101,25 @@ if __name__ == "__main__":
     # wav_signal = wav_signal[8*fs:-4*fs]
     # plt.plot(wav_signal)
     # plt.show()
+    
+
+
     if wav_signal is None:
+        print("Microphone options on this device:")
+        print(sd.query_devices())
+        input_mic_index = input("\nIndex of microphone to use in this recording: ")
+       
         # initialize soundcard for recording:
         pa = pyaudio.PyAudio()
         stream = pa.open(format=pyaudio.paInt16, channels=1, rate=fs,
+                         input_device_index=int(input_mic_index),
                          input=True, frames_per_buffer=int(fs * buff_size))
+
+    # if wav_signal is None:
+    #     # initialize soundcard for recording:
+    #     pa = pyaudio.PyAudio()
+    #     stream = pa.open(format=pyaudio.paInt16, channels=1, rate=fs,
+    #                      input=True, frames_per_buffer=int(fs * buff_size))
     means = []
     count_bufs = 0
     count_mid_bufs = 0
