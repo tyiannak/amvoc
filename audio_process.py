@@ -11,6 +11,7 @@ from pyAudioAnalysis import ShortTermFeatures as sF
 import numpy as np
 import os
 from scipy import ndimage
+import matplotlib.pyplot as plt
 
 
 def get_spectrogram(path, win, step, disable_caching=True, smooth=True):
@@ -76,7 +77,7 @@ def clean_spectrogram(spectrogram):
     return new_spectrogram
 
 
-def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
+def get_syllables(spectral_en, total_en,  win_step,crit=0, threshold_per=40,
                   min_duration=0.02, threshold_buf=None, prev_time_frames=None):
     """
     The basic vocalization (syllable) detection method
@@ -118,7 +119,13 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     smooth_filter = np.ones(filter_size_smooth) / filter_size_smooth
     spectral_ratio = (spectral_en + C) / (total_en + C)
     spectral_ratio = np.convolve(spectral_ratio, smooth_filter, mode="same")
-
+    # print(np.where(spectral_en-np.mean(spectral_en) > np.sqrt(np.var(spectral_en))))
+    # plt.subplot(1,2,1)
+    # plt.plot(spectral_en)
+    # plt.plot(np.mean(spectral_en)*np.ones(spectral_en.shape))
+    # plt.subplot(1,2,2)
+    # # plt.plot(crit, '-o')
+    # plt.show()
     # Step 3: thresholding
     # (get the indices of the frames that satisfy the thresholding criteria:
     # (a) spectral energy is higher than the dynamic threshold and
@@ -128,13 +135,41 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
     # TODO: This value is optimized for F1, F2 = 30 - 110 KHz and should be
     # TODO: recalculated if changed !
     mean_spectral_ratio = 0.69
-    is_vocal = ((spectral_en > threshold) &
-                (spectral_ratio > mean_spectral_ratio))
+    # ratio = np.var(crit[2]/np.amax(crit[2]), axis=1)
+    
+    # /np.mean(crit[2]/np.amax(crit[2]), axis=1)
+    # print(np.mean(spectral_en/np.amax(spectral_en)))
+    # print(np.var(spectral_en/np.amax(spectral_en)))
+    indices = np.argmax(crit[2], axis=1)
+    ind_down = np.argmax(crit[2], axis=1) - 20
+    change = np.where(ind_down<0)[0]
+    ind_down[change]=0
+    ind_up = np.argmax(crit[2], axis=1) + 20
+    change = np.where(ind_up>crit[2].shape[1]-1)[0]
+    ind_up[change]=crit[2].shape[1]-1
+    means = []
+    for i in range(spectral_en.shape[0]):
+        means.append(np.mean(crit[2][i,ind_down[i]:ind_up[i]]))
+    means = np.array(means)
+    # print(np.mean(crit[2])-np.amax(crit[2]))
+    # plt.plot(np.amax(crit[2], axis=1)- means)
+    # plt.show()
+    is_vocal = ((spectral_en > threshold)&
+                # (np.amax(crit[2], axis=1)/np.mean(crit[2], axis=1) > 5))
+                (np.amax(crit[2], axis=1)/means > 3))
+                # ())
+    # (spectral_ratio > mean_spectral_ratio))
+                # ((spectral_en/np.amax(spectral_en))-np.mean(spectral_en/np.amax(spectral_en)) > 1.5*(np.var(spectral_en/np.amax(spectral_en)))))
+                # (ratio>10**(-6) ))
+                
+                # (spectral_en-np.mean(spectral_en) > np.var(spectral_en)))
+                # (crit>0))
     
     # Step 4: smooth 
     is_vocal = np.convolve(is_vocal, smooth_filter, mode="same")
     indices = np.where(is_vocal)[0]
-
+    # print(var[indices])
+    
     # Step 5: window indices to segment limits
     index, seg_limits, time_clusters = 0, [], []
 
@@ -149,14 +184,30 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
             if index == len(indices)-1:
                 break
         index += 1
+        # if (np.var(crit[2][cur_cluster]/np.amax(crit[2][cur_cluster]))<0.05) or (np.var(crit[0][cur_cluster]-np.mean(crit[0][cur_cluster]))>3500):
+        #     continue
         time_clusters.append(cur_cluster)
         seg_limits.append([cur_cluster[0] * win_step - win_step,
                            cur_cluster[-1] * win_step + win_step])
-
+    # print(time_clusters)
+    # print(crit)
+    # for cluster in time_clusters:
+    #     print(np.var(crit[2][cluster]/np.amax(crit[2][cluster]))/np.mean(crit[2][cluster]/np.amax(crit[2][cluster])))
+    #     print(np.var(np.argmax(crit[2][cluster], axis =0)))
+    #     temp = np.where(spectral_en[time_clusters[i]]>np.mean(spectral_en[time_clusters[i]]))[0]
+    #     print(np.var(crit[0][cluster])/crit[0][cluster].shape[0])
+        # print(np.var(crit[0][cluster]-np.mean(crit[cluster])))
+        # print('Time mean: {} var: {}, Freq mean: {} var: {}'.format(np.mean(crit[1][cluster]/np.amax(crit[1][cluster])), np.var(crit[1][cluster]/np.amax(crit[1][cluster])), np.mean(crit[2][cluster]/np.amax(crit[2][cluster])), np.var(crit[2][cluster]/np.amax(crit[2][cluster]))))
     # Step 6: post process (remove very small segments)
     seg_limits_2 = []
-    for s_lim in seg_limits:
+    for i, s_lim in enumerate(seg_limits):
         if s_lim[1] - s_lim[0] > min_duration:
-            seg_limits_2.append(s_lim)
+            # temp = np.where(spectral_en[time_clusters[i]]>np.mean(spectral_en[time_clusters[i]]))[0]
+            ratio = np.var(crit[2][time_clusters[i]]/np.amax(crit[2][time_clusters[i]]))/np.mean(crit[2][time_clusters[i]]/np.amax(crit[2][time_clusters[i]]))
+            # total_ratio = np.var(crit[2]/np.amax(crit[2]))/np.mean(crit[2]/np.amax(crit[2]))
+            # print(total_ratio)
+            if np.var(crit[0][time_clusters[i]])<1500 and np.var(np.argmax(crit[2][time_clusters[i]], axis =0)) > 5 and ratio > 0.03:
+                # print('Ratio {}'.format(np.var(crit[2][time_clusters[i]]/np.amax(crit[2][time_clusters[i]]))/np.mean(crit[2][time_clusters[i]]/np.amax(crit[2][time_clusters[i]]))))
+                seg_limits_2.append(s_lim)
 
     return seg_limits_2, threshold, spectral_ratio

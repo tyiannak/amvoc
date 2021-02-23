@@ -114,8 +114,15 @@ def get_layout(spec):
     seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                spectral_energy_1,
                                                ST_STEP,
+                                               (np.argmax(spectrogram[:,f1:f2], axis =1),0,spectrogram[:,f1:f2]),
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
+                                               
+    # with open('debug_offline.csv', 'w') as fp:
+    #     for iS, s in enumerate(seg_limits):
+    #         fp.write(f'{s[0]},'
+    #                 f'{s[1]}\n')
+
     images, f_points, f_points_init, \
     [feats_simple, feats_deep], feat_names, [f1, f2], segments, seg_limits = ar.cluster_syllables(seg_limits, spectrogram,
                                              sp_freq, f_low, f_high,  ST_STEP)

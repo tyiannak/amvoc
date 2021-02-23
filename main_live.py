@@ -14,6 +14,7 @@ import audio_process as ap
 from pyAudioAnalysis import audioBasicIO as io
 import utils
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 global fs
 global all_data
@@ -58,10 +59,11 @@ def signal_handler(signal, frame):
 
     spectral_energy_1 = spectrogram.sum(axis=1)
     spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
-
+    crit =  (np.argmax(spectrogram[:,f1:f2], axis =1), np.argmax(spectrogram, axis =0), spectrogram[:,f1:f2])
     seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                spectral_energy_1,
                                                ST_STEP,
+                                               crit,
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
     for s in seg_limits:
@@ -92,7 +94,9 @@ if __name__ == "__main__":
     mid_buffer = []
     time_start = time.time()
     outstr = datetime.datetime.now().strftime("%Y_%m_%d_%I:%M%p")
-
+    # wav_signal = wav_signal[8*fs:-4*fs]
+    # plt.plot(wav_signal)
+    # plt.show()
     if wav_signal is None:
         # initialize soundcard for recording:
         pa = pyaudio.PyAudio()
@@ -108,7 +112,12 @@ if __name__ == "__main__":
 
     with open("debug_realtime.csv", "w") as fp:
         pass
-
+    # print(min(wav_signal))
+    # print(max(wav_signal))
+    # wav_signal = StandardScaler().fit_transform(wav_signal.reshape(-1,1))
+    # wav_signal = wav_signal[:,0]
+    # wav_signal = wav_signal/(max(wav_signal))
+    # wav_signal = list(wav_signal)
     while 1:  # for each recorded window (until ctr+c) is pressed
         if wav_signal is None:
             # get current block and convert to list of short ints,
@@ -124,7 +133,11 @@ if __name__ == "__main__":
         # then normalize and convert to numpy array:
         x = np.double(shorts_list) / (2**15)
         seg_len = len(x)
-
+        # shorts_list = MinMaxScaler().fit_transform(np.array(shorts_list).reshape(-1,1))
+        # shorts_list = list(shorts_list[:,0])
+        # shorts_list = np.array(shorts_list)/(max(shorts_list))
+        # shorts_list = list(shorts_list)
+        # print(shorts_list)
         all_data += shorts_list
 
         mid_buffer += shorts_list
@@ -135,39 +148,61 @@ if __name__ == "__main__":
                                                                           fs,
                                                                           ST_WIN,
                                                                           ST_STEP)
-            # print(spectrogram)
-            # plt.imshow(spectrogram)
-            # plt.show()
+            # print((np.where(spectrogram>0.1))[0].shape)
+            # print(np.amin(spectrogram))
+            # print(spectrogram.T[10,:])
+            # for i in range(spectrogram.shape[0]):
+            #     for j in range(50):
+            #         if spectrogram[i,j]>0.005:
+            #             spectrogram[i,j] = 0.001
             
+            # spectrogram  = spectrogram/np.amax(spectrogram)
+            # print(spectrogram.shape)
+            # spectrogram = MinMaxScaler().fit_transform(spectrogram)
             # define feature sequence for vocalization detection
             f1 = np.argmin(np.abs(sp_freq - f_low))
             f2 = np.argmin(np.abs(sp_freq - f_high))
-
+            # spectrogram[:,:f1] = 0.001
+            # spectrogram[:,f2:] = 0.001
+            # spectrogram = spectrogram[:,:250]
+            # spectrogram[:, :50] = 0
+            # plt.imshow(spectrogram[:,f1:f2].T)
+            # plt.show()
             spectral_energy_1 = spectrogram.sum(axis=1)
+            # print(spectral_energy_1)
             spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
-
+            # crit = (np.amax(spectrogram, axis=1)-np.mean(spectrogram,axis=1)-np.var(spectrogram,axis=1))
+            var = np.var(spectrogram[:,f1:f2], axis=1)
+            mean = np.mean(spectrogram[:,f1:f2], axis=1)
+            crit =  (np.argmax(spectrogram[:,f1:f2], axis =1), np.argmax(spectrogram, axis =0), spectrogram[:,f1:f2])
+            # var = np.var(spectrogram/np.amax(spectrogram), axis = 1)
             means.append(spectral_energy_2.mean())
             time_sec = 100
             seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
                                                        spectral_energy_1,
                                                        ST_STEP,
+                                                       crit,
                                                        threshold_per=thres * 100,
                                                        min_duration=MIN_VOC_DUR,
                                                        threshold_buf = means,
                                                     #    prev_time_frames=int(time_sec/mid_buffer_size)
                                                        )
             kmeans_centers = np.load('kmeans_centers.npy')
+            # print(kmeans_centers)
             win = ST_STEP
             for s in seg_limits:
 
-                # for each detected syllable (vocalization)
+                # # for each detected syllable (vocalization)
 
                 # A. get the spectrogram area in the defined frequency range
                 start = int(s[0] / win)
                 end = int(s[1] / win)
-                
-                # np.save('segments.npy', segments)
+                # # np.save('segments.npy', segments)
                 cur_image = spectrogram[start:end, f1:f2]
+                # print(cur_image)
+                # plt.imshow(cur_image.T)
+                # plt.show()
+                # var = np.var(cur_image/np.amax(cur_image), axis = 1)
                 if cur_image.shape[0]==0 or cur_image.shape[1]==0:
                     continue
                 temp_image = cur_image/np.amax(cur_image)
@@ -179,6 +214,27 @@ if __name__ == "__main__":
                     # plt.imshow(temp_image.T)
                     # plt.show()
                     continue
+                if np.linalg.norm(vec[1:]-kmeans_centers[1][1:]) < np.linalg.norm(vec[1:]-kmeans_centers[0][1:]):
+                    # print(mentemp_image)
+                    # print([start, end])
+                    # plt.imshow(temp_image.T)
+                    # plt.show()
+                    continue
+                # stop = False
+                # for i in np.arange(0,160,40):
+                #     vec = [np.mean(temp_image[:,i:i+40]),np.var(temp_image[:,i:i+40]), np.mean(cur_image[:,i:i+40]-np.amax(cur_image[:,i:i+40])), np.var(cur_image[:,i:i+40]-np.amax(cur_image[:,i:i+40]))]
+                #     if np.linalg.norm(vec-kmeans_centers[1]) < np.linalg.norm(vec-kmeans_centers[0]):
+                #         stop = True
+                #         break
+                # if stop==True:
+                    # continue
+                # print(kmeans_centers)
+                # print(vec)
+                # if vec[2] > -0.05:
+                #     continue
+                
+                # plt.imshow(cur_image.T)
+                # plt.show()
                 print([count_mid_bufs * mid_buffer_size + s[0], count_mid_bufs * mid_buffer_size + s[1]])
                 with open("debug_realtime.csv", "a") as fp:
                     fp.write(f'{count_mid_bufs * mid_buffer_size + s[0]},'

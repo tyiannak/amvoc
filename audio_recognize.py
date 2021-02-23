@@ -36,7 +36,7 @@ def metrics(X, y):
 
 
 def cluster_syllables(syllables, specgram, sp_freq,
-                      f_low, f_high, win, train = False):
+                      f_low, f_high, win, train = False, comp=False):
     """
     TODO
     :param syllables:
@@ -88,6 +88,8 @@ def cluster_syllables(syllables, specgram, sp_freq,
         # if check:
         #     syllables_final.append(syl)
         #     continue
+        # plt.imshow(cur_image.T)
+        # plt.show()
         images.append(cur_image)
         segments.append([start,end])
         syllables_final.append(syl)
@@ -164,10 +166,13 @@ def cluster_syllables(syllables, specgram, sp_freq,
             cur_features = cur_features[0:desired - 10].tolist()
 
         features_s.append(cur_features)
-    if train:
+    if train or comp:
         return images
-
-    features_s = MinMaxScaler().fit_transform(features_s)  
+    with open('debug_offline.csv', 'w') as fp:
+        for iS, s in enumerate(syllables_final):
+            fp.write(f'{s[0]},'
+                    f'{s[1]}\n')
+    features_s = StandardScaler().fit_transform(features_s)  
 
     feature_names = ["duration",
                     "min_freq", "max_freq", "mean_freq",
