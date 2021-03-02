@@ -155,7 +155,7 @@ def get_syllables(spectral_en, total_en,  win_step,crit=0, threshold_per=40,
     # plt.plot(np.amax(crit[2], axis=1)- means)
     # plt.show()
     is_vocal = ((spectral_en > threshold)&
-                # ((np.amax(crit[2], axis=1)/np.mean(crit[2], axis=1) > 4.25)&
+                ((np.amax(crit[2], axis=1)/np.mean(crit[2], axis=1) > 4.25)&
                 (np.amax(crit[2], axis=1)/means > 3))
                 # ())
     # (spectral_ratio > mean_spectral_ratio))
