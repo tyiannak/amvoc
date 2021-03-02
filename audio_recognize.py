@@ -63,6 +63,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
     # print(len(syllables))
     if not train:
         kmeans_centers = np.load('kmeans_centers.npy')
+    vec1 = []
     for syl in syllables:
         # for each detected syllable (vocalization)
 
@@ -78,18 +79,26 @@ def cluster_syllables(syllables, specgram, sp_freq,
         if train:
             images.append(cur_image)
             continue
-        vec = [np.mean(temp_image),np.var(temp_image), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))]
+        vec=[np.mean(temp_image),np.var(temp_image), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))]
         if np.linalg.norm(vec-kmeans_centers[1]) < np.linalg.norm(vec-kmeans_centers[0]):
+        # or (vec[0]>0.16 and vec[1]>0.011) or (vec[0]>0.11 and vec[1]>0.016):
             # print(mentemp_image)
-            # print([start, end])
-            # plt.imshow(temp_image.T)
+            # print(syl)
+            # print(vec)
+            # plt.imshow(cur_image.T)
             # plt.show()
             continue
         # if check:
         #     syllables_final.append(syl)
         #     continue
+        # print(syl)
+        # plt.figure()
+        # # plt.imshow(specgram[int(12/0.002):int(13/0.002),f1:f2].T)
+        # print(vec)
+        # plt.figure()
         # plt.imshow(cur_image.T)
         # plt.show()
+        # vec1.append([vec[0], vec[1]])
         images.append(cur_image)
         segments.append([start,end])
         syllables_final.append(syl)
@@ -168,10 +177,39 @@ def cluster_syllables(syllables, specgram, sp_freq,
         features_s.append(cur_features)
     if train or comp:
         return images
+    # vec1 = np.array(vec1)
+    # clusterer = KMeans(n_clusters=2)
+    # y = clusterer.fit_predict(vec1)
+    # images=np.array(images, dtype=object)
+    # vec1=np.array(vec1)
+    # var_0, var_1 = [], []
+    # for element in images[y==1]:
+    #     var_1.append(np.var(element))
+    # for element in images[y==0]:
+    #     var_0.append(np.var(element))
+    # var_1 = np.mean(var_1)
+    # var_0 = np.mean(var_0)
+    # centers = clusterer.cluster_centers_
+    # we choose the images with the highest variance (true positives)
+    # if var_1 < var_0:
+    #     train_data = list(images[y==1])
+    #     vec1 = list(vec1[y==1])
+    # else:
+    #     train_data= list(images[y==0])
+    #     vec1 = list(vec1[y==0])
+    # cat = np.argmax(centers[:,0])
+    # print(centers)
+    # for i in range(len(images)):
+    #     if vec1[i][0]>0.12 and vec1[i][1]> 0.13:
+    #         print(vec1[i])
+    #         plt.figure()
+    #         plt.imshow(images[i].T)
+    #         plt.show()
     with open('debug_offline.csv', 'w') as fp:
         for iS, s in enumerate(syllables_final):
-            fp.write(f'{s[0]},'
-                    f'{s[1]}\n')
+            # if s[0]>=10 and s[1]<=15: 
+                fp.write(f'{s[0]},'
+                        f'{s[1]}\n')
     features_s = StandardScaler().fit_transform(features_s)  
 
     feature_names = ["duration",

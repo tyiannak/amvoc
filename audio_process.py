@@ -141,10 +141,10 @@ def get_syllables(spectral_en, total_en,  win_step,crit=0, threshold_per=40,
     # print(np.mean(spectral_en/np.amax(spectral_en)))
     # print(np.var(spectral_en/np.amax(spectral_en)))
     indices = np.argmax(crit[2], axis=1)
-    ind_down = np.argmax(crit[2], axis=1) - 20
+    ind_down = np.argmax(crit[2], axis=1) - 30
     change = np.where(ind_down<0)[0]
     ind_down[change]=0
-    ind_up = np.argmax(crit[2], axis=1) + 20
+    ind_up = np.argmax(crit[2], axis=1) + 30
     change = np.where(ind_up>crit[2].shape[1]-1)[0]
     ind_up[change]=crit[2].shape[1]-1
     means = []
@@ -155,7 +155,7 @@ def get_syllables(spectral_en, total_en,  win_step,crit=0, threshold_per=40,
     # plt.plot(np.amax(crit[2], axis=1)- means)
     # plt.show()
     is_vocal = ((spectral_en > threshold)&
-                # (np.amax(crit[2], axis=1)/np.mean(crit[2], axis=1) > 5))
+                # ((np.amax(crit[2], axis=1)/np.mean(crit[2], axis=1) > 4.25)&
                 (np.amax(crit[2], axis=1)/means > 3))
                 # ())
     # (spectral_ratio > mean_spectral_ratio))
@@ -203,10 +203,10 @@ def get_syllables(spectral_en, total_en,  win_step,crit=0, threshold_per=40,
     for i, s_lim in enumerate(seg_limits):
         if s_lim[1] - s_lim[0] > min_duration:
             # temp = np.where(spectral_en[time_clusters[i]]>np.mean(spectral_en[time_clusters[i]]))[0]
-            ratio = np.var(crit[2][time_clusters[i]]/np.amax(crit[2][time_clusters[i]]))/np.mean(crit[2][time_clusters[i]]/np.amax(crit[2][time_clusters[i]]))
+            # ratio = np.var(crit[2][time_clusters[i]]/np.amax(crit[2][time_clusters[i]]))/np.mean(crit[2][time_clusters[i]]/np.amax(crit[2][time_clusters[i]]))
             # total_ratio = np.var(crit[2]/np.amax(crit[2]))/np.mean(crit[2]/np.amax(crit[2]))
-            # print(total_ratio)
-            if np.var(crit[0][time_clusters[i]])<1500 and np.var(np.argmax(crit[2][time_clusters[i]], axis =0)) > 5 and ratio > 0.03:
+            # print(ratio)
+            # if ratio > 0.03:
                 # print('Ratio {}'.format(np.var(crit[2][time_clusters[i]]/np.amax(crit[2][time_clusters[i]]))/np.mean(crit[2][time_clusters[i]]/np.amax(crit[2][time_clusters[i]]))))
                 seg_limits_2.append(s_lim)
 

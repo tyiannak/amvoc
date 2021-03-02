@@ -24,7 +24,7 @@ global wav_signal
 
 
 buff_size = 0.01  # recording buffer size in seconds
-mid_buffer_size = 0.5 # processing buffer size in seconds
+mid_buffer_size = 0.75 # processing buffer size in seconds
 
 config_data = utils.load_config("config.json")
 ST_WIN = config_data['params']['ST_WIN']
@@ -227,12 +227,8 @@ if __name__ == "__main__":
 
                 vec = [np.mean(temp_image),np.var(temp_image), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))]
                 if np.linalg.norm(vec-kmeans_centers[1]) < np.linalg.norm(vec-kmeans_centers[0]):
-                    # print(mentemp_image)
-                    # print([start, end])
-                    # plt.imshow(temp_image.T)
-                    # plt.show()
-                    continue
-                if np.linalg.norm(vec[1:]-kmeans_centers[1][1:]) < np.linalg.norm(vec[1:]-kmeans_centers[0][1:]):
+                # or (vec[0]>0.16 and vec[1]>0.011) or (vec[0]>0.11 and vec[1]>0.016):
+                # or vec[1]>0.02 or vec[0]>0.185 or (vec[0]>0.1 and vec[1]>0.01):
                     # print(mentemp_image)
                     # print([start, end])
                     # plt.imshow(temp_image.T)
@@ -253,10 +249,12 @@ if __name__ == "__main__":
                 
                 # plt.imshow(cur_image.T)
                 # plt.show()
+                # print(vec)
                 print([count_mid_bufs * mid_buffer_size + s[0], count_mid_bufs * mid_buffer_size + s[1]])
                 with open("debug_realtime.csv", "a") as fp:
-                    fp.write(f'{count_mid_bufs * mid_buffer_size + s[0]},'
-                             f'{count_mid_bufs * mid_buffer_size + s[1]}\n')
+                    # if count_mid_bufs * mid_buffer_size + s[0]>=10 and count_mid_bufs * mid_buffer_size + s[1]<=15: 
+                        fp.write(f'{count_mid_bufs * mid_buffer_size + s[0]},'
+                                f'{count_mid_bufs * mid_buffer_size + s[1]}\n')
 
             mid_buffer = []
             count_mid_bufs += 1
