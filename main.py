@@ -27,11 +27,6 @@ import matplotlib
 # matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import json
-# import jsbeautifier
-# import plotly.express as px
-# from plotly.offline import plot
-# import warnings
-# warnings.filterwarnings("ignore")
 
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
@@ -48,7 +43,7 @@ class ConvAutoencoder(nn.Module):
     def __init__(self):
         super(ConvAutoencoder, self).__init__()
         ## encoder layers ##
-        # conv layer (depth from 3 --> 64), 3x3 kernels
+        # conv layer (depth from 1 --> 64), 3x3 kernels
         self.conv1 = nn.Conv2d(1, 64, 3, padding =1)  
         # conv layer (depth from 64 --> 32), 3x3 kernels
         self.conv2 = nn.Conv2d(64, 32, 3, padding=1)
@@ -111,34 +106,17 @@ def get_shapes(segments, freq1, freq2):
 def get_layout(spec):
 
     global list_contour, segments, images, f1, f2, feats_simple, feats_deep, feats_2d_s, feats_2d_d, seg_limits, syllables
-    seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
-                                               spectral_energy_1,
+    seg_limits, thres_sm = ap.get_syllables(spectral_energy,
+                                               means,
+                                               max_values,
                                                ST_STEP,
-                                               (np.argmax(spectrogram[:,f1:f2], axis =1),0,spectrogram[:,f1:f2]),
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
                                                
-    # with open('debug_offline.csv', 'w') as fp:
-    #     for iS, s in enumerate(seg_limits):
-    #         fp.write(f'{s[0]},'
-    #                 f'{s[1]}\n')
 
     images, f_points, f_points_init, \
     [feats_simple, feats_deep], feat_names, [f1, f2], segments, seg_limits = ar.cluster_syllables(seg_limits, spectrogram,
                                              sp_freq, f_low, f_high,  ST_STEP)
-
-    #Dimension reduction for plotting
-    # Tune T-SNE
-    # feats = []
-    # kl = []
-    # iterations = [500, 1000, 2000, 5000]
-    # for i in range (4):
-    #     tsne = TSNE(n_components=2, perplexity = 30, n_iter = iterations[i])
-    #     feats_2d = tsne.fit_transform(features)
-    #     feats.append(feats_2d)
-    #     kl.append(tsne.kl_divergence_)
-    # index = np.argmin(np.array(kl))
-    # print(iterations[index])
 
     tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
     feats_2d_s = tsne.fit_transform(feats_simple)
@@ -181,8 +159,6 @@ def get_layout(spec):
     syllables = [{"st": s[0], "et": s[1]}
                  for iS, s in enumerate(seg_limits)]
 
-    # with open('annotations.json', 'w') as outfile:
-    #     json.dump([''], outfile)
     shapes1 = get_shapes(seg_limits, f_low, f_high)
     if spec:
         layout = dbc.Container([
@@ -500,8 +476,8 @@ if __name__ == "__main__":
     f1 = np.argmin(np.abs(sp_freq - f_low))
     f2 = np.argmin(np.abs(sp_freq - f_high))
 
-    spectral_energy_1 = spectrogram.sum(axis=1)
-    spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
+    spectral_energy, means, max_values = ap.prepare_features(spectrogram[:, f1:f2])
+    
     app = dash.Dash(
         external_stylesheets=[dbc.themes.BOOTSTRAP]
     )
@@ -577,14 +553,15 @@ if __name__ == "__main__":
                 else:
                     fig['data'][0]['marker']['line']['color'][index]='Red'
                 click_index = -1
-                # table[int(labels[index])]['Num of annotated points'] +=1
                 return fig, sil, cal_har, dav_bould, clust_info
+
             elif click_data:
                 index=click_data['points'][0]['pointIndex']
                 fig['data'][0]['marker']['size'][index]=10
                 if click_index != -1 and click_index != index:
                     fig['data'][0]['marker']['size'][click_index]=7.5
                 click_index = index
+
                 return fig, sil, cal_har, dav_bould, clust_info
         else:
             if feats_type == 'simple':
@@ -622,7 +599,7 @@ if __name__ == "__main__":
                         fig['data'][0]['marker']['line']['color'][index]='Green'
                     else:
                         fig['data'][0]['marker']['line']['color'][index]='Red'
-        
+        print(scores)
         return fig, round(scores[0],3), round(scores[1]), round(scores[2],3), data
 
     @app.callback(
@@ -692,18 +669,12 @@ if __name__ == "__main__":
     def point_annotation(click_data, val, info, n_clicks):
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if click_data and (val=='approve' or val=='reject') and 'btn_1' in changed_id:
-            # fig = plt.figure()
-            # plt.imshow(images[click_data['points'][0]['pointIndex']].T)
-            # plt.savefig('spec_{}.png'.format(click_data['points'][0]['pointIndex']))
-            # plt.close(fig)
+
             point_info = {'index': click_data['points'][0]['pointIndex'] , 
                           'class': int(labels[click_data['points'][0]['pointIndex']]), 
                           'start time': syllables[click_data['points'][0]['pointIndex']]['st'], 'end time': syllables[click_data['points'][0]['pointIndex']]['et'],
-                        #   'spec_file': 'spec_{}.png'.format(click_data['points'][0]['pointIndex']), 
                           'annotation': val}
             point_info = {**point_info, **info}
-            # options = jsbeautifier.default_options()
-            # options.indent_size = 2
 
             with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 data=json.load(infile)
@@ -718,7 +689,6 @@ if __name__ == "__main__":
                         break
                 if ready==False:
                     data['point_annotations'].append(point_info)
-                # x = jsbeautifier.beautify(json.dumps(data), options)
                 x = json.dumps(data, indent=2)
                 outfile.write(x)
             return val
@@ -735,9 +705,6 @@ if __name__ == "__main__":
     def cluster_annotation(click_data, val, info, n_clicks):
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if click_data and val and val!='no' and 'btn_2' in changed_id:
-            
-            # options = jsbeautifier.default_options()
-            # options.indent_size = 2
 
             with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 data=json.load(infile)
@@ -754,7 +721,6 @@ if __name__ == "__main__":
                 if ready==False:
                     info['annotation'] = val 
                     data['cluster_annotations'].append(info)
-                # x = jsbeautifier.beautify(json.dumps(data), options)
                 x = json.dumps(data, indent=2)
                 outfile.write(x)
             return val
@@ -769,9 +735,6 @@ if __name__ == "__main__":
     def total_cluster_annotation(val, info, n_clicks):
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if val and val!='no' and 'btn_3' in changed_id:
-            
-            # options = jsbeautifier.default_options()
-            # options.indent_size = 2
 
             with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 data=json.load(infile)
@@ -787,7 +750,6 @@ if __name__ == "__main__":
                 if ready==False:
                     info['annotation'] = val 
                     data['total_cluster_annotations'].append(info)
-                # x = jsbeautifier.beautify(json.dumps(data), options)
                 x = json.dumps(data, indent=2)
                 outfile.write(x)
             return val
@@ -803,7 +765,6 @@ if __name__ == "__main__":
         else:
             index = 0
         fig = go.Figure(data = go.Heatmap(x =sp_time[segments[index][0]:segments[index][1]], y=sp_freq[f1:f2], z = (images[index].T)/np.amax(images[index]), 
-        # zmin = np.amin(images[index]), zmax = np.amax(images[index])+(np.amax(images[index])-np.amin(images[index])), 
         showscale=False),
                         layout = go.Layout(title = 'Spectrogram of syllable', margin={'l': 0, 'b': 40, 't': 40, 'r': 0}, 
                                         xaxis = dict(range=[(sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2-0.1, (sp_time[segments[index][0]]+ sp_time[segments[index][1]])/2+0.1], 
