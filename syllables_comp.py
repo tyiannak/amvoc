@@ -48,8 +48,8 @@ if __name__ == "__main__":
         for row in reader:
             syllables_offline.append(row)
 
-    print('Syllables of 1st csv file: {}'.format(len(syllables_offline)))
-    print('Syllables of 2nd csv file: {}'.format(len(syllables_online)))
+    print('Syllables of 1st csv file: {}'.format(len(syllables_online)))
+    print('Syllables of 2nd csv file: {}'.format(len(syllables_offline)))
 
     max_len = max(len(syllables_offline), len(syllables_online))
     for i in range(len(syllables_offline)):
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     duration = spectrogram.shape[0] * ST_STEP
     precision, recall, accuracy_temporal = eval.temporal_evaluation(syllables_offline, syllables_online, duration)
     accuracy_event = eval.event_evaluation(syllables_offline, syllables_online)
-    print(precision)
-    print(recall)
-    print(accuracy_temporal)
-    print(accuracy_event)
+    print("Temporal Precision: {}".format(precision))
+    print("Temporal Recall: {}".format(recall))
+    print("Temporal Accuracy: {}".format(accuracy_temporal))
+    print("Event Accuracy: {}".format(accuracy_event))
