@@ -48,8 +48,8 @@ if __name__ == "__main__":
         for row in reader:
             syllables_offline.append(row)
 
-    print('Syllables offline: {}'.format(len(syllables_offline)))
-    print('Syllables online: {}'.format(len(syllables_online)))
+    print('Syllables of 1st csv file: {}'.format(len(syllables_offline)))
+    print('Syllables of 2nd csv file: {}'.format(len(syllables_online)))
 
     max_len = max(len(syllables_offline), len(syllables_online))
     for i in range(len(syllables_offline)):
@@ -74,8 +74,3 @@ if __name__ == "__main__":
     print(recall)
     print(accuracy_temporal)
     print(accuracy_event)
-    with open ('exp_ur_1.txt', 'a') as exp: 
-        exp.write('Temporal Precision: {:.4f}\n'.format(precision))
-        exp.write('Temporal Recall: {:.4f}\n'.format(recall))
-        exp.write('Temporal accuracy: {:.4f}\n'.format(accuracy_temporal))
-        exp.write('Event accuracy: {:.4f}\n'.format(accuracy_event))
