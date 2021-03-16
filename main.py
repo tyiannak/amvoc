@@ -27,6 +27,7 @@ import matplotlib
 # matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import json
+import csv
 # import jsbeautifier
 # import plotly.express as px
 # from plotly.offline import plot
@@ -139,7 +140,21 @@ def get_layout(spec):
     #     kl.append(tsne.kl_divergence_)
     # index = np.argmin(np.array(kl))
     # print(iterations[index])
-
+    
+    syllfile = args.input_file
+    syllfilename = syllfile.split('.')[0] + '.csv'
+    with open(syllfilename, 'w+', newline='') as write_obj:
+        csv_writer = csv.writer(write_obj)
+        csv_writer.writerow(['file','starttime','endtime'])
+    write_obj.close()
+    for s in segments:
+        with open(syllfilename, 'a+', newline='') as write_obj:
+            # Create a writer object from csv module
+            csv_writer = csv.writer(write_obj)
+            # Add contents of list as last row in the csv file
+            csv_writer.writerow([syllfilename.split('/')[-1],s[0]/1000,s[1]/1000])
+    
+    
     tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
     feats_2d_s = tsne.fit_transform(feats_simple)
     tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
