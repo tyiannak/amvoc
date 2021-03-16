@@ -71,22 +71,6 @@ def signal_handler(signal, frame):
                                                 )
 
     for s in seg_limits:
-        # for each detected syllable (vocalization)
-
-        # A. get the spectrogram area in the defined frequency range
-        start = int(s[0] / win)
-        end = int(s[1] / win)
-
-        cur_image = spectrogram[start:end, f1:f2]
-        # post processing - remove false positives
-
-        if cur_image.shape[0]==0 or cur_image.shape[1]==0:
-            continue
-        temp_image = cur_image/np.amax(cur_image)
-
-        vec = [np.mean(temp_image),np.var(temp_image), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))]
-        if (vec[0]-0.7*kmeans_centers[1,0]>=0 and vec[1]-0.7*kmeans_centers[1,2]>=0):
-            continue
         with open("debug_offline.csv", "a") as fp:
             fp.write(f'{count_mid_bufs * mid_buffer_size + s[0]},'
                      f'{count_mid_bufs * mid_buffer_size + s[1]}\n')
@@ -184,26 +168,8 @@ if __name__ == "__main__":
             win = ST_STEP
             for s in seg_limits:
 
-                # for each detected syllable (vocalization)
-
-                # A. get the spectrogram area in the defined frequency range
-                start = int(s[0] / win)
-                end = int(s[1] / win)
-
-                cur_image = spectrogram[start:end, f1:f2]
-
-                # post processing - remove false positives
-                if cur_image.shape[0]==0 or cur_image.shape[1]==0:
-                    continue
-                temp_image = cur_image/np.amax(cur_image)
-
-                vec = [np.mean(temp_image),np.var(temp_image)]
-                if (vec[0]-0.7*kmeans_centers[1,0]>=0 and vec[1]-0.7*kmeans_centers[1,2]>=0):
-                    continue
-
                 print([count_mid_bufs * mid_buffer_size + s[0], count_mid_bufs * mid_buffer_size + s[1]])
                 with open("debug_realtime.csv", "a") as fp:
-                    if count_mid_bufs * mid_buffer_size + s[0]>=5 and count_mid_bufs * mid_buffer_size + s[1]<=10: 
                         fp.write(f'{count_mid_bufs * mid_buffer_size + s[0]},'
                                 f'{count_mid_bufs * mid_buffer_size + s[1]}\n')
 

@@ -58,8 +58,6 @@ def cluster_syllables(syllables, specgram, sp_freq,
     test = []
     syllables_final = []
 
-    if not train:
-        kmeans_centers = np.load('kmeans_centers.npy')
     vec1 = []
     for syl in syllables:
         # for each detected syllable (vocalization)
@@ -69,17 +67,11 @@ def cluster_syllables(syllables, specgram, sp_freq,
         end = int(syl[1] / win)
         
         cur_image = specgram[start:end, f1:f2]
-        if cur_image.shape[0]==0 or cur_image.shape[1]==0:
-            continue
-        temp_image = cur_image/np.amax(cur_image)
+
         if train:
             images.append(cur_image)
             continue
-        vec=[np.mean(temp_image),np.var(temp_image), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))]
-        if (vec[0]-0.7*kmeans_centers[1,0]>=0 and vec[1]-0.7*kmeans_centers[1,2]>=0):
-            plt.imshow(cur_image.T)
-            plt.show()
-            continue
+        
         images.append(cur_image)
         segments.append([start,end])
         syllables_final.append(syl)
@@ -174,7 +166,8 @@ def cluster_syllables(syllables, specgram, sp_freq,
                     "freq_start", "freq_end"]
 
     init_images = np.array(images, dtype = object)
-
+    
+    #crop and normalize images
     time_limit = 64
 
     for i in range(len(images)):

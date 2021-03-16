@@ -107,14 +107,14 @@ def prepare_features(spectrogram):
         means.append(np.mean(spectrogram[i,ind_down[i]:ind_up[i]]))
     means = np.array(means)
 
-    # 3.calculate the maximum values og each time frame
+    # 3.calculate the maximum values of each time frame
     max_values = np.amax(spectrogram, axis=1)
 
     return spectral_energy, means, max_values
 
 
 def get_syllables(spectral_en, means, max_values, win_step, threshold_per=40,
-                  min_duration=0.02, threshold_buf=None, prev_time_frames=None):
+                  min_duration=0.02, threshold_buf=None):
     """
     The basic vocalization (syllable) detection method
     :param spectral_en: the input feature sequence (spectral energy)
@@ -142,12 +142,8 @@ def get_syllables(spectral_en, means, max_values, win_step, threshold_per=40,
                                                        mode="same") +
                                      0.5 * global_mean) / 100.0
     else:
-        if prev_time_frames:
-            threshold = threshold_per * (0.3 * np.mean(threshold_buf[-prev_time_frames:]) + 
-                                        0.7 * np.mean(spectral_en)) / 100.0
-        else:
-            threshold = threshold_per * (0.3 * np.mean(threshold_buf) + 
-                                        0.7 * np.mean(spectral_en)) / 100.0
+        threshold = threshold_per * (0.3 * np.mean(threshold_buf) + 
+                                    0.7 * np.mean(spectral_en)) / 100.0
 
     # Step 2: define a smoothing filter 
     filter_size_smooth = int(0.02 / win_step)
