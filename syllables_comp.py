@@ -75,7 +75,7 @@ if __name__ == "__main__":
     print(accuracy_temporal)
     print(accuracy_event)
     with open ('exp_ur_1.txt', 'a') as exp: 
-        exp.write('Precision: {:.4f}\n'.format(precision))
-        exp.write('Recall: {:.4f}\n'.format(recall))
+        exp.write('Temporal Precision: {:.4f}\n'.format(precision))
+        exp.write('Temporal Recall: {:.4f}\n'.format(recall))
         exp.write('Temporal accuracy: {:.4f}\n'.format(accuracy_temporal))
         exp.write('Event accuracy: {:.4f}\n'.format(accuracy_event))
