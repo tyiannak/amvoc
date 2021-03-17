@@ -36,27 +36,28 @@ if __name__ == "__main__":
     csv1 = args.input_csv1
     csv2 = args.input_csv2
 
-    syllables_online, syllables_offline = [], []
+    syllables_csv1, syllables_csv2 = [], []
 
     with open(csv1, 'r') as realtime:
         reader = csv.reader(realtime)
         for row in reader:
-            syllables_online.append(row)
+            syllables_csv1.append(row)
+                
 
     with open(csv2, 'r') as offline:
         reader = csv.reader(offline)
         for row in reader:
-            syllables_offline.append(row)
+            syllables_csv2.append(row)
 
-    print('Syllables of 1st csv file: {}'.format(len(syllables_online)))
-    print('Syllables of 2nd csv file: {}'.format(len(syllables_offline)))
+    print('Syllables of 1st csv file: {}'.format(len(syllables_csv1)))
+    print('Syllables of 2nd csv file: {}'.format(len(syllables_csv2)))
 
-    max_len = max(len(syllables_offline), len(syllables_online))
-    for i in range(len(syllables_offline)):
-        syllables_offline[i] = [float(syllables_offline[i][0]), float(syllables_offline[i][1])]
+    max_len = max(len(syllables_csv2), len(syllables_csv1))
+    for i in range(len(syllables_csv2)):
+        syllables_csv2[i] = [float(syllables_csv2[i][0]), float(syllables_csv2[i][1])]
     
-    for i in range(len(syllables_online)):
-        syllables_online[i] = [float(syllables_online[i][0]), float(syllables_online[i][1])]
+    for i in range(len(syllables_csv1)):
+        syllables_csv1[i] = [float(syllables_csv1[i][0]), float(syllables_csv1[i][1])]
 
     
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
@@ -68,9 +69,9 @@ if __name__ == "__main__":
     f2 = np.argmin(np.abs(sp_freq - f_high))
 
     duration = spectrogram.shape[0] * ST_STEP
-    precision, recall, accuracy_temporal = eval.temporal_evaluation(syllables_offline, syllables_online, duration)
-    accuracy_event = eval.event_evaluation(syllables_offline, syllables_online)
+    precision, recall, accuracy_temporal = eval.temporal_evaluation(syllables_csv2, syllables_csv1, duration)
+    accuracy_event = eval.event_evaluation(syllables_csv2, syllables_csv1)
     print("Temporal Precision: {}".format(precision))
     print("Temporal Recall: {}".format(recall))
-    print("Temporal Accuracy: {}".format(accuracy_temporal))
-    print("Event Accuracy: {}".format(accuracy_event))
+    print("Temporal F1: {}".format(accuracy_temporal))
+    print("Event F1: {}".format(accuracy_event))
