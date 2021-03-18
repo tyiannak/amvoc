@@ -152,10 +152,6 @@ def cluster_syllables(syllables, specgram, sp_freq,
     if train or comp:
         return images
 
-    with open('debug_offline.csv', 'w') as fp:
-        for iS, s in enumerate(syllables_final):
-                fp.write(f'{s[0]},'
-                        f'{s[1]}\n')
     features_s = StandardScaler().fit_transform(features_s)  
 
     feature_names = ["duration",

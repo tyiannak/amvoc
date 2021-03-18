@@ -26,7 +26,10 @@ import torch.nn.functional as F
 import matplotlib
 # matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import time
+from sys import exit
 import json
+import csv
 
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
@@ -112,7 +115,16 @@ def get_layout(spec):
                                                ST_STEP,
                                                threshold_per=thres * 100,
                                                min_duration=MIN_VOC_DUR)
-                                               
+    time_end = time.time()
+    print("Time needed for vocalizations detection: {} s".format(round(time_end-time_start, 1)))
+
+    continue_ = input("Do you want to proceed with clustering? (y/n) \n")
+    if continue_=="n":
+        with open('debug_offline.csv', 'w') as fp:
+            for iS, s in enumerate(seg_limits):
+                fp.write(f'{s[0]},'
+                        f'{s[1]}\n')   
+        exit()       
 
     images, f_points, f_points_init, \
     [feats_simple, feats_deep], feat_names, [f1, f2], segments, seg_limits = ar.cluster_syllables(seg_limits, spectrogram,
@@ -459,6 +471,7 @@ if __name__ == "__main__":
     args = parse_arguments()
     global sp_time, sp_freq, moves, click_index
     click_index =-1
+    time_start = time.time()
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
                                                            ST_WIN, ST_STEP)
 
