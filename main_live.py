@@ -163,7 +163,6 @@ if __name__ == "__main__":
                                                     min_duration=MIN_VOC_DUR,
                                                     threshold_buf = means,
                                                     )
-            kmeans_centers = np.load('kmeans_centers.npy')
 
             win = ST_STEP
             for s in seg_limits:

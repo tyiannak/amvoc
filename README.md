@@ -46,7 +46,7 @@ python3 syllables_comp.py -i data/B148_test_small.wav -csv1 first_file.csv -csv2
 ```
 We have annotated some intervals of multiple recordings in order to evaluate the vocalization detection method and saved them in .csv files. These can be found in the google drive link https://drive.google.com/drive/folders/1gfRecT_0EYatHhvZMmmK8V_C0m562NCS?usp=sharing, along with the corresponding WAV recordings and a README file that defines which time interval of each recording we have annotated. 
 
-The evaluation results are presented in https://docs.google.com/spreadsheets/d/1Kv2thpGLPzoflB7GHtn0pt0cJJ-utLC2u1QLK98DKP0/edit?usp=sharing. 
+The evaluation results are presented in the same google drive link mentioned above. 
 
 The method we chose correspond to column online_1 and offline_1. If the user wants to reproduce the results, they can download the whole folder from google drive and run for example the `main_live.py`:
 
