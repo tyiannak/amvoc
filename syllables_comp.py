@@ -38,21 +38,19 @@ if __name__ == "__main__":
 
     syllables_csv1, syllables_csv2 = [], []
 
-    with open(csv1, 'r') as realtime:
-        reader = csv.reader(realtime)
+    with open(csv1, 'r') as file1:
+        reader = csv.reader(file1)
         for row in reader:
             syllables_csv1.append(row)
-                
 
-    with open(csv2, 'r') as offline:
-        reader = csv.reader(offline)
+    with open(csv2, 'r') as file2:
+        reader = csv.reader(file2)
         for row in reader:
             syllables_csv2.append(row)
 
     print('Syllables of 1st csv file: {}'.format(len(syllables_csv1)))
     print('Syllables of 2nd csv file: {}'.format(len(syllables_csv2)))
 
-    max_len = max(len(syllables_csv2), len(syllables_csv1))
     for i in range(len(syllables_csv2)):
         syllables_csv2[i] = [float(syllables_csv2[i][0]), float(syllables_csv2[i][1])]
     
@@ -69,9 +67,9 @@ if __name__ == "__main__":
     f2 = np.argmin(np.abs(sp_freq - f_high))
 
     duration = spectrogram.shape[0] * ST_STEP
-    precision, recall, accuracy_temporal = eval.temporal_evaluation(syllables_csv2, syllables_csv1, duration)
-    accuracy_event = eval.event_evaluation(syllables_csv2, syllables_csv1)
-    print("Temporal Precision: {}".format(precision))
-    print("Temporal Recall: {}".format(recall))
-    print("Temporal F1: {}".format(accuracy_temporal))
-    print("Event F1: {}".format(accuracy_event))
+    t_precision, t_recall, f1_temporal = eval.temporal_evaluation(syllables_csv2, syllables_csv1, duration)
+    f1_event = eval.event_evaluation(syllables_csv2, syllables_csv1)
+    print("Temporal Precision: {}".format(t_precision))
+    print("Temporal Recall: {}".format(t_recall))
+    print("Temporal F1: {}".format(f1_temporal))
+    print("Event F1: {}".format(f1_event))

@@ -40,6 +40,7 @@ MIN_VOC_DUR = config_data['params']['MIN_VOC_DUR']
 F1 = config_data['params']['F1']
 F2 = config_data['params']['F2']
 thres = config_data['params']['thres']
+factor = config_data['params']['factor']
 
 
 class ConvAutoencoder(nn.Module):
@@ -89,7 +90,9 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Amvoc")
     parser.add_argument("-i", "--input_file", required=True, nargs=None,
                         help="File")
-    parser.add_argument("-s", "--spectrogram", required=True, nargs=None,
+    parser.add_argument("-c", "--continue_", required=True, nargs=None,
+                        help="Decision")
+    parser.add_argument("-s", "--spectrogram", required=False, nargs=None,
                         help="Condition")
     return parser.parse_args()
 
@@ -106,7 +109,7 @@ def get_shapes(segments, freq1, freq2):
     return shapes1
 
 
-def get_layout(spec):
+def get_layout(spec=False):
 
     global list_contour, segments, images, f1, f2, feats_simple, feats_deep, feats_2d_s, feats_2d_d, seg_limits, syllables
     seg_limits, thres_sm = ap.get_syllables(spectral_energy,
@@ -114,16 +117,16 @@ def get_layout(spec):
                                                max_values,
                                                ST_STEP,
                                                threshold_per=thres * 100,
+                                               factor=factor,
                                                min_duration=MIN_VOC_DUR)
     time_end = time.time()
     print("Time needed for vocalizations detection: {} s".format(round(time_end-time_start, 1)))
-
-    continue_ = input("Do you want to proceed with clustering? (y/n) \n")
-    if continue_=="n":
-        with open('debug_offline.csv', 'w') as fp:
+    continue_ = args.continue_
+    with open('offline_vocalizations.csv', 'w') as fp:
             for iS, s in enumerate(seg_limits):
                 fp.write(f'{s[0]},'
                         f'{s[1]}\n')   
+    if continue_=="n":
         exit()       
 
     images, f_points, f_points_init, \
@@ -495,10 +498,12 @@ if __name__ == "__main__":
         external_stylesheets=[dbc.themes.BOOTSTRAP]
     )
     clean_spectrogram = ap.clean_spectrogram(spectrogram)
-    if args.spectrogram=='False'or args.spectrogram=='false' or args.spectrogram=='0':
-        app.layout = get_layout(False)
-    elif args.spectrogram=='True' or args.spectrogram=='true' or args.spectrogram=='1':
+    
+    if args.spectrogram=='True' or args.spectrogram=='true' or args.spectrogram=='1':
         app.layout = get_layout(True)
+    else:
+        app.layout = get_layout()
+
 
     """
     On-spectrogram-click callback: 

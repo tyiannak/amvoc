@@ -113,7 +113,7 @@ def prepare_features(spectrogram):
     return spectral_energy, means, max_values
 
 
-def get_syllables(spectral_en, means, max_values, win_step, threshold_per=40,
+def get_syllables(spectral_en, means, max_values, win_step, threshold_per=40, factor=3.5,
                   min_duration=0.02, threshold_buf=None):
     """
     The basic vocalization (syllable) detection method
@@ -155,9 +155,8 @@ def get_syllables(spectral_en, means, max_values, win_step, threshold_per=40,
     # (b) maximum energy is higher than mean energy by a factor of 3.5
 
     is_vocal = ((spectral_en > threshold)&
-                (max_values/means > 3.5))
+                (max_values/means > factor))
 
-    
     # Step 4: smooth 
     is_vocal = np.convolve(is_vocal, smooth_filter, mode="same")
     indices = np.where(is_vocal)[0]
@@ -180,11 +179,17 @@ def get_syllables(spectral_en, means, max_values, win_step, threshold_per=40,
         time_clusters.append(cur_cluster)
         seg_limits.append([cur_cluster[0] * win_step - win_step,
                            cur_cluster[-1] * win_step + win_step])
+        if cur_cluster[0]==0:
+            seg_limits[-1][0]=0
     
     # Step 6: post process (remove very small segments)
     seg_limits_2 = []
     for i, s_lim in enumerate(seg_limits):
         if s_lim[1] - s_lim[0] > min_duration:
+            # merge subsequent vocalizations with time difference less than 11 ms
+            if i>0 and s_lim[0]-seg_limits[i-1][1]<=0.011:
+                seg_limits_2[-1][1] = s_lim[1]
+            else:
                 seg_limits_2.append(s_lim)
 
     return seg_limits_2, threshold

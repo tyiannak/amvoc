@@ -16,6 +16,7 @@ import utils
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import sounddevice as sd
+import csv
 
 global fs
 global all_data
@@ -32,7 +33,8 @@ ST_STEP = config_data['params']['ST_STEP']
 MIN_VOC_DUR = config_data['params']['MIN_VOC_DUR']
 F1 = config_data['params']['F1']
 F2 = config_data['params']['F2']
-thres = 0.7
+thres = config_data['params']['thres']
+factor = config_data['params']['factor']
 
 
 wav_signal = None
@@ -114,12 +116,13 @@ if __name__ == "__main__":
     means = []
     count_bufs = 0
     count_mid_bufs = 0
+    cnt = 0
 
     # get spectral sequences:
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
 
-    with open("debug_realtime.csv", "w") as fp:
+    with open("realtime_vocalizations.csv", "w") as fp:
         pass
     while 1:  # for each recorded window (until ctr+c) is pressed
         if wav_signal is None:
@@ -131,17 +134,22 @@ if __name__ == "__main__":
         else:
             shorts_list = wav_signal[int(count_bufs * buff_size * fs):
                                  int((count_bufs + 1) * buff_size * fs)].tolist()
-            if int((count_bufs + 1) * buff_size * fs) > len(wav_signal):
-                break
         # then normalize and convert to numpy array:
         x = np.double(shorts_list) / (2**15)
         seg_len = len(x)
         all_data += shorts_list
 
         mid_buffer += shorts_list
-        if len(mid_buffer) >= int(mid_buffer_size * fs):
+        if len(mid_buffer) >= int(mid_buffer_size * fs) or (int((count_bufs + 1) * buff_size * fs) > len(wav_signal) and len(mid_buffer)>0):    
             # get spectrogram:
-            spectrogram, sp_time, sp_freq, _  = ap.get_spectrogram_buffer(mid_buffer,
+            if cnt>0:
+                # calculate the spectrogram of the signal in the mid_buffer and 100 msec before 
+                spectrogram, sp_time, sp_freq, _  = ap.get_spectrogram_buffer(all_data[-len(mid_buffer)-int(0.1*fs):],
+                                                                          fs,
+                                                                          ST_WIN,
+                                                                          ST_STEP)
+            else:
+                spectrogram, sp_time, sp_freq, _  = ap.get_spectrogram_buffer(mid_buffer,
                                                                           fs,
                                                                           ST_WIN,
                                                                           ST_STEP)
@@ -160,19 +168,62 @@ if __name__ == "__main__":
                                                     max_values,
                                                     ST_STEP,
                                                     threshold_per=thres * 100,
+                                                    factor=factor, 
                                                     min_duration=MIN_VOC_DUR,
                                                     threshold_buf = means,
                                                     )
 
             win = ST_STEP
+            # the following lines save the detected vocalizations in a .csv file and correct the split ones 
             for s in seg_limits:
-
-                print([count_mid_bufs * mid_buffer_size + s[0], count_mid_bufs * mid_buffer_size + s[1]])
-                with open("debug_realtime.csv", "a") as fp:
-                        fp.write(f'{count_mid_bufs * mid_buffer_size + s[0]},'
-                                f'{count_mid_bufs * mid_buffer_size + s[1]}\n')
+                if cnt>0:
+                    real_start = count_mid_bufs * mid_buffer_size-0.1 + s[0]
+                    real_end = count_mid_bufs * mid_buffer_size-0.1 + s[1]
+                    if s[0]<=0.1 and s[1] >=0.1:
+                        # last vocalization should be changed
+                        syllables_csv1 = []
+                        print("correction")
+                        # load the written vocalizations up to now
+                        with open("realtime_vocalizations.csv", "r") as realtime:
+                            reader = csv.reader(realtime)
+                            for row in reader:
+                                syllables_csv1.append(row)
+                        with open("realtime_vocalizations.csv", "w") as fp:
+                            for iS, syl in enumerate(syllables_csv1):
+                                # rewrite the correct vocalizations
+                                if iS<len(syllables_csv1)-1:
+                                    fp.write(f'{syl[0]},'
+                                            f'{syl[1]}\n')
+                                else:
+                                    # change the entry only if the newly detected vocalization has an overlap with the old one
+                                    if float(syl[1]) > float(real_start):
+                                        print([min(float(syl[0]), float(real_start)), real_end])
+                                        fp.write(f'{min(float(syl[0]), float(real_start))},'
+                                            f'{real_end}\n')
+                                    # otherwise, keep both 
+                                    else:
+                                        fp.write(f'{syl[0]},'
+                                            f'{syl[1]}\n')
+                                        print([real_start, real_end])
+                                        fp.write(f'{real_start},'
+                                            f'{real_end}\n')
+                    elif s[0]<0.1 and s[1]<0.1:
+                        # no need to add or change an entry
+                        continue
+                    else:
+                        print([real_start, real_end])
+                        with open("realtime_vocalizations.csv", "a") as fp:
+                            fp.write(f'{real_start},'
+                                    f'{real_end}\n')
+                else:
+                    print([count_mid_bufs * mid_buffer_size + s[0], count_mid_bufs * mid_buffer_size + s[1]])
+                    with open("realtime_vocalizations.csv", "a") as fp:
+                            fp.write(f'{count_mid_bufs * mid_buffer_size+ s[0]},'
+                                    f'{count_mid_bufs * mid_buffer_size+ s[1]}\n')
+            cnt+=1
 
             mid_buffer = []
             count_mid_bufs += 1
-
+        if int((count_bufs + 1) * buff_size * fs) > len(wav_signal):
+            break
         count_bufs += 1
