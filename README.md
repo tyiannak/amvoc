@@ -36,6 +36,7 @@ By running the `main_live.py`, the user can get the detected vocalizations in on
 python3 main_live.py -i data/B148_test_small.wav
 ```
 
+If no filename is provided, then the signal is recorded during the running of the program. 
 If the user runs the `main_live.py`, the vocalizations are saved in a csv file named realtime_vocalizations.csv.  
 Then, the detected vocalizations of a recording with our method can be compared to the detected vocalizations of the same recording using some other method, or to annotated vocalizations (ground truth). 
 This comparison can be done using the `syllables_comp.py`, which takes the WAV filename of the recording, and the names of the two csv files to be compared.
@@ -43,22 +44,26 @@ This comparison can be done using the `syllables_comp.py`, which takes the WAV f
 ```
 python3 syllables_comp.py -i data/B148_test_small.wav -csv1 first_file.csv -csv2 second_file.csv
 ```
-We have annotated some intervals of multiple recordings in order to evaluate the vocalization detection method and saved them in .csv files. These can be found in the google drive link https://drive.google.com/drive/folders/1gfRecT_0EYatHhvZMmmK8V_C0m562NCS?usp=sharing, along with the corresponding WAV recordings and a README file that defines which time interval of each recording we have annotated. Ground truth files have the name gt_{num}_fc.csv, for example gt_1_fc.csv. We have also included the detected vocalizations from 5 other methods: 2 versions of MSA, MUPET, VocalMat and DeepSqueak. Their csv files, e.g. deepsqueak_1_fc.csv can be used for comparison with our results or the ground truth annotations.
-The .csv files without the _fc suffix include the same vocalizations, but start and end time correspond to the original and not the cut recording. 
+We have annotated some intervals of multiple recordings in order to evaluate the vocalization detection method and saved them in .csv files. These can be found in the folder data/vocalizations_evaluation, along with the corresponding WAV recordings. Ground truth files have the name gt_{num}.csv, for example gt_1.csv. We have also included the detected vocalizations from 5 other methods: 2 versions of MSA, MUPET, VocalMat and DeepSqueak. Their csv files, e.g. deepsqueak_1.csv can be used for comparison with our results or the ground truth annotations.
 
-The evaluation results are presented in the same google drive link mentioned above. 
-
-AMVOC results are presented in columns offline and online. If the user wants to reproduce the results, they can download the whole folder from google drive and run for example the `main_live.py`:
+If the user wants to reproduce the results, they can run the `main.py` (offline detection) or main_live.py (online detection):
 
 ```
-python3 main_live.py -i path/to/folder_1/1/rec1.wav
+python3 main.py -i data/vocalizations_evaluation/1/rec_1.wav -c n
+
+```
+or
+
+```
+
+python3 main_live.py -i data/vocalizations_evaluation/1/rec_1.wav
 
 ```
 
 In order to compare the detected vocalizations with the actual ones, the user should run the syllables_comp.py:
 
 ```
-python3 syllables_comp.py -i path/to/folder_1/rec_1.wav -csv1 path/to/first_csv/realtime_vocalizations.csv -csv2 path/to/folder_1/1/gt_1_fc.csv
+python3 syllables_comp.py -i data/vocalizations_evaluation/1/rec_1.wav -csv1 realtime_vocalizations.csv -csv2 data/vocalizations_evaluation/1/gt_1.csv
 ```
 
 The evaluation metrics are displayed on terminal. 
