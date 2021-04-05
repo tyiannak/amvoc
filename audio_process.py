@@ -11,6 +11,7 @@ from pyAudioAnalysis import ShortTermFeatures as sF
 import numpy as np
 import os
 from scipy import ndimage
+import matplotlib.pyplot as plt
 
 
 def get_spectrogram(path, win, step, disable_caching=True, smooth=True):
@@ -75,14 +76,50 @@ def clean_spectrogram(spectrogram):
         new_spectrogram[i, :] /= sum(new_spectrogram[i, :])
     return new_spectrogram
 
+def prepare_features(spectrogram):
+    """
+    Calculates useful features for the vocalization detection
+    :param spectrogram: the spectrogram for the vocalization detection, only the frequency range of interest
+    :return 
+        1) spectral_energy
+        2) means: mean spectral energy of a range of 60 kHz around the maximum frequency in each time frame
+        3) maximum energy value for each time frame 
+    """
+    # 1.calculate spectral energy 
+    spectral_energy = spectrogram.sum(axis=1)
 
-def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
-                  min_duration=0.02, threshold_buf=None, prev_time_frames=None):
+    # find frequency of maximum value for each time frame
+    indices = np.argmax(spectrogram, axis=1)
+    # keep a frequency window of 60 kHz around the frequency corrsponding to max 
+    ind_down = np.argmax(spectrogram, axis=1) - 30
+    ind_up = np.argmax(spectrogram, axis=1) + 30
+
+    # remove points that are out of frequency range 
+    change = np.where(ind_down < 0)[0]
+    ind_down[change]=0
+    
+    change = np.where(ind_up > spectrogram.shape[1]-1)[0]
+    ind_up[change]=spectrogram.shape[1]-1
+
+    # 2.calculate the mean of the spectrogram values in the defined frequency window for each time frame 
+    means = []
+    for i in range(spectral_energy.shape[0]):
+        means.append(np.mean(spectrogram[i,ind_down[i]:ind_up[i]]))
+    means = np.array(means)
+
+    # 3.calculate the maximum values of each time frame
+    max_values = np.amax(spectrogram, axis=1)
+
+    return spectral_energy, means, max_values
+
+
+def get_syllables(spectral_en, means, max_values, win_step, threshold_per=40, factor=3.5,
+                  min_duration=0.02, threshold_buf=None):
     """
     The basic vocalization (syllable) detection method
     :param spectral_en: the input feature sequence (spectral energy)
-    :param total_en: the secondary feature sequence
-           (i.e. the total spectral energy)
+    :param means: mean spectral energy of a range of 60 kHz around the maximum frequency in each time frame
+    :param max_values: maximum energy value for each time frame 
     :param win_step: window step (in msecs) used in feature extraction
     :param threshold_per: threshold parameter (percentage)
     :param min_duration: minimum vocalization duration
@@ -105,36 +142,25 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
                                                        mode="same") +
                                      0.5 * global_mean) / 100.0
     else:
-        if prev_time_frames:
-            threshold = threshold_per * (0.3 * np.mean(threshold_buf[-prev_time_frames:]) + 
-                                        0.7 * np.mean(spectral_en)) / 100.0
-        else:
-            threshold = threshold_per * (0.3 * np.mean(threshold_buf) + 
-                                        0.7 * np.mean(spectral_en)) / 100.0
+        threshold = threshold_per * (0.3 * np.mean(threshold_buf) + 
+                                    0.7 * np.mean(spectral_en)) / 100.0
 
-    # Step 2: spectral energy ratio computation:
-    C = 0.01
+    # Step 2: define a smoothing filter 
     filter_size_smooth = int(0.02 / win_step)
     smooth_filter = np.ones(filter_size_smooth) / filter_size_smooth
-    spectral_ratio = (spectral_en + C) / (total_en + C)
-    spectral_ratio = np.convolve(spectral_ratio, smooth_filter, mode="same")
 
     # Step 3: thresholding
     # (get the indices of the frames that satisfy the thresholding criteria:
     # (a) spectral energy is higher than the dynamic threshold and
-    # (b) spectral ratio (spectral energy by total energy is
-    #     larger than the mean spectral ratio)
-    # mean_spectral_ratio = spectral_ratio.mean()
-    # TODO: This value is optimized for F1, F2 = 30 - 110 KHz and should be
-    # TODO: recalculated if changed !
-    mean_spectral_ratio = 0.69
-    is_vocal = ((spectral_en > threshold) &
-                (spectral_ratio > mean_spectral_ratio))
-    
+    # (b) maximum energy is higher than mean energy by a factor of 3.5
+
+    is_vocal = ((spectral_en > threshold)&
+                (max_values/means > factor))
+
     # Step 4: smooth 
     is_vocal = np.convolve(is_vocal, smooth_filter, mode="same")
     indices = np.where(is_vocal)[0]
-
+    
     # Step 5: window indices to segment limits
     index, seg_limits, time_clusters = 0, [], []
 
@@ -149,14 +175,21 @@ def get_syllables(spectral_en, total_en, win_step, threshold_per=40,
             if index == len(indices)-1:
                 break
         index += 1
+
         time_clusters.append(cur_cluster)
         seg_limits.append([cur_cluster[0] * win_step - win_step,
                            cur_cluster[-1] * win_step + win_step])
-
+        if cur_cluster[0]==0:
+            seg_limits[-1][0]=0
+    
     # Step 6: post process (remove very small segments)
     seg_limits_2 = []
-    for s_lim in seg_limits:
+    for i, s_lim in enumerate(seg_limits):
         if s_lim[1] - s_lim[0] > min_duration:
-            seg_limits_2.append(s_lim)
+            # merge subsequent vocalizations with time difference less than 11 ms
+            if i>0 and s_lim[0]-seg_limits[i-1][1]<=0.011:
+                seg_limits_2[-1][1] = s_lim[1]
+            else:
+                seg_limits_2.append(s_lim)
 
-    return seg_limits_2, threshold, spectral_ratio
+    return seg_limits_2, threshold

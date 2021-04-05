@@ -36,7 +36,7 @@ def metrics(X, y):
 
 
 def cluster_syllables(syllables, specgram, sp_freq,
-                      f_low, f_high, win, train = False):
+                      f_low, f_high, win, train = False, comp=False):
     """
     TODO
     :param syllables:
@@ -57,12 +57,8 @@ def cluster_syllables(syllables, specgram, sp_freq,
     max_dur = 0
     test = []
     syllables_final = []
-    # high_thres = 0.015
-    # low_thres = 0.006
-    # print(len(specgram))
-    # print(len(syllables))
-    if not train:
-        kmeans_centers = np.load('kmeans_centers.npy')
+
+    vec1 = []
     for syl in syllables:
         # for each detected syllable (vocalization)
 
@@ -70,24 +66,12 @@ def cluster_syllables(syllables, specgram, sp_freq,
         start = int(syl[0] / win)
         end = int(syl[1] / win)
         
-        # np.save('segments.npy', segments)
         cur_image = specgram[start:end, f1:f2]
-        if cur_image.shape[0]==0 or cur_image.shape[1]==0:
-            continue
-        temp_image = cur_image/np.amax(cur_image)
+
         if train:
             images.append(cur_image)
             continue
-        vec = [np.mean(temp_image),np.var(temp_image), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))]
-        if np.linalg.norm(vec-kmeans_centers[1]) < np.linalg.norm(vec-kmeans_centers[0]):
-            # print(mentemp_image)
-            # print([start, end])
-            # plt.imshow(temp_image.T)
-            # plt.show()
-            continue
-        # if check:
-        #     syllables_final.append(syl)
-        #     continue
+        
         images.append(cur_image)
         segments.append([start,end])
         syllables_final.append(syl)
@@ -164,10 +148,11 @@ def cluster_syllables(syllables, specgram, sp_freq,
             cur_features = cur_features[0:desired - 10].tolist()
 
         features_s.append(cur_features)
-    if train:
+
+    if train or comp:
         return images
 
-    features_s = MinMaxScaler().fit_transform(features_s)  
+    features_s = StandardScaler().fit_transform(features_s)  
 
     feature_names = ["duration",
                     "min_freq", "max_freq", "mean_freq",
@@ -177,26 +162,9 @@ def cluster_syllables(syllables, specgram, sp_freq,
                     "freq_start", "freq_end"]
 
     init_images = np.array(images, dtype = object)
-
-    # duration = []
-    # for image in images:
-    #     duration.append(image.shape[0])
-    # print(duration)
-    # plt.hist(duration, bins = range(min(duration), 100))
-    # plt.show()
-    # hist = np.histogram(duration)
-    # print(hist)
-    # if max_dur> 64:
-        # time_limit = 64
-    # else:
-    # max_dur = ((int(1.5*np.mean(duration))+ 7) & (-8)) 
+    
+    #crop and normalize images
     time_limit = 64
-    # transformations = transforms.Compose([
-    # transforms.Resize([160,max_dur], 5)])
-    # for i in range(len(images)):
-    #     images[i] = Image.fromarray(images[i].T)
-    #     images[i] = pad_repeat(images[i], max_dur)
-    #     images[i] = np.array(images[i]).T
 
     for i in range(len(images)):
         if len(images[i])>time_limit:
@@ -205,8 +173,6 @@ def cluster_syllables(syllables, specgram, sp_freq,
             images[i] = np.pad(images[i]/np.amax(images[i]), ((int((time_limit-images[i].shape[0])/2), (time_limit-images[i].shape[0]) - int((time_limit-images[i].shape[0])/2)),(0,0)))
         else:
             images[i] = images[i]/np.amax(images[i])
-    # for i in range(len(images)):
-    #     images[i] = images[i]/np.amax(images[i])
     
     specs = np.array(images)
     specs = specs.reshape(specs.shape[0], 1, specs.shape[1], specs.shape[2])
@@ -226,25 +192,11 @@ def cluster_syllables(syllables, specgram, sp_freq,
 
     outputs=np.array(outputs)
     features = outputs
-    # feats = MinMaxScaler().fit_transform(features)
-    ## hist = np.histogram(np.var(features, axis = 0))
-    # corr = np.mean(np.abs(np.nan_to_num(np.corrcoef(feats,rowvar=False))), axis = 0)
-    # hist_cor = np.histogram(corr)
-    # var = np.mean(np.var(feats, axis = 0))
-    # hist_var = np.histogram(var)
-    # indices = np.intersect1d(np.where(corr>hist_cor[1][-2]), np.where(var<hist_var[1][1]))
-    # features = np.delete(features, indices, axis = 1)
-    # features = StandardScaler().fit_transform(features)
-    # print(statistics.median(np.var(features, axis = 0)))
-    # print(np.mean(np.var(features, axis = 0)))
-    # print(np.where(np.var(features,axis=0) < np.mean(np.var(features, axis=0))))
     selector = VarianceThreshold(threshold=(1.2*np.mean(np.var(features, axis = 0))))
-    # selector = VarianceThreshold(threshold=(hist[1][np.argmax(hist[0])+1]))
-    # plt.hist(np.var(features, axis = 0))
-    # plt.show()
+
     features = selector.fit_transform(features)
     features = StandardScaler().fit_transform(features)
-    # print(features.shape)
+
     test = min(100,features.shape[0], features.shape[1])
     n_comp = 0
     while (1):
@@ -280,25 +232,6 @@ def clustering(method, n_clusters, features):
         clusterer =  AgglomerativeClustering(n_clusters=n_clusters)
         y, scores = cluster_help(clusterer, features, n_clusters)
     elif method == 'birch':
-        # thresholds = np.arange(0.1,2.1,0.2)
-        # sil_scores, ch_scores, db_scores = [], [], []
-        # #Choosing the best threshold based on metrics results
-        # for thres in thresholds:
-        #     clusterer = Birch(threshold = thres, n_clusters=n_clusters)
-        #     y, scores = cluster_help(clusterer,features, n_clusters)
-        #     #Stop checking bigger values of threshold
-        #     if len(np.unique(y)) < n_clusters:
-        #         break
-        #     sil_scores.append(scores[0])
-        #     ch_scores.append(scores[1])
-        #     db_scores.append(scores[2])
-
-        # sil_ind = np.argsort(np.argsort(sil_scores))
-        # ch_ind = np.argsort(np.argsort(ch_scores))
-        # db_ind = np.argsort(np.argsort(db_scores))
-        # sum = sil_ind + ch_ind- db_ind
-        # thres = thresholds[np.argmax(sum)]
-        # scores = [sil_scores[np.argmax(sum)], ch_scores[np.argmax(sum)], db_scores[np.argmax(sum)]]
         clusterer = Birch(n_clusters = n_clusters)
         y, scores = cluster_help(clusterer,features, n_clusters)
     elif method == 'gmm':
@@ -310,8 +243,5 @@ def clustering(method, n_clusters, features):
     elif method == 'mbkmeans':
         clusterer = MiniBatchKMeans(n_clusters = n_clusters, random_state=9)
         y, scores = cluster_help(clusterer, features, n_clusters)
-    # elif method == 'spec':
-    #     clusterer = SpectralClustering(n_clusters = n_clusters, random_state=9)
-    #     y, scores = cluster_help(clusterer, features, n_clusters)
 
     return y, scores 

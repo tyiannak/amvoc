@@ -76,7 +76,7 @@ def temporal_evaluation(s1, s2, duration):
     precision = cm[1, 1] / (cm[1, 1] + cm[0, 1])
     recall = cm[1, 1] / (cm[1, 1] + cm[1, 0])
     f1 = 2 * recall * precision / (recall + precision)
-    return f1
+    return precision, recall, f1
 
 
 def event_evaluation(s1, s2):
