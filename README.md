@@ -44,9 +44,12 @@ This comparison can be done using the `syllables_comp.py`, which takes the WAV f
 ```
 python3 syllables_comp.py -i data/B148_test_small.wav -csv1 first_file.csv -csv2 second_file.csv
 ```
-We have annotated some intervals of multiple recordings in order to evaluate the vocalization detection method and saved them in .csv files. These can be found in the folder data/vocalizations_evaluation, along with the corresponding WAV recordings. Ground truth files have the name gt_{num}.csv, for example gt_1.csv. We have also included the detected vocalizations from 5 other methods: 2 versions of MSA, MUPET, VocalMat and DeepSqueak. Their csv files, e.g. deepsqueak_1.csv can be used for comparison with our results or the ground truth annotations.
+We have annotated some intervals of multiple recordings in order to evaluate 
+the vocalization detection method and saved them in .csv files. 
+These can be found in the folder data/vocalizations_evaluation, along with the corresponding WAV recordings. Ground truth files have the name gt_{num}.csv, for example gt_1.csv. We have also included the detected vocalizations from 5 other methods: 2 versions of MSA, MUPET, VocalMat and DeepSqueak. Their csv files, e.g. deepsqueak_1.csv can be used for comparison with our results or the ground truth annotations.
 
-If the user wants to reproduce the results, they can run the `main.py` (offline detection) or main_live.py (online detection):
+If one wants to reproduce the results, she can run the `main.py` 
+(offline detection) or main_live.py (online detection):
 
 ```
 python3 main.py -i data/vocalizations_evaluation/1/rec_1.wav -c n
@@ -60,7 +63,8 @@ python3 main_live.py -i data/vocalizations_evaluation/1/rec_1.wav
 
 ```
 
-In order to compare the detected vocalizations with the actual ones, the user should run the syllables_comp.py:
+In order to compare the detected vocalizations with the actual ones, 
+the user should run the syllables_comp.py:
 
 ```
 python3 syllables_comp.py -i data/vocalizations_evaluation/1/rec_1.wav -csv1 realtime_vocalizations.csv -csv2 data/vocalizations_evaluation/1/gt_1.csv

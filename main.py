@@ -559,7 +559,8 @@ if __name__ == "__main__":
          State('cluster_graph', 'clickData'),
          State('cluster_graph', 'figure'),
         ])
-    def update_cluster_graph(method, n_clusters, feats_type, n_clicks_3, sil, cal_har, dav_bould, clust_info, click_data, fig):
+    def update_cluster_graph(method, n_clusters, feats_type, n_clicks_3, sil,
+                             cal_har, dav_bould, clust_info, click_data, fig):
         global labels,click_index
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if 'intermediate_val_syllables.children' in changed_id:
@@ -585,19 +586,35 @@ if __name__ == "__main__":
             if feats_type == 'simple':
                 y, scores = ar.clustering(method, n_clusters, feats_simple)
                 labels = y
-                fig = go.Figure(data = go.Scatter(x = feats_2d_s[:, 0], y = feats_2d_s[:, 1], name='',
+                fig = go.Figure(data = go.Scatter(x = feats_2d_s[:, 0],
+                                                  y = feats_2d_s[:, 1], name='',
                             mode='markers',
-                            marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))], line=dict(width=2,
-                                        color=['White' for i in range(len(y))]), opacity=1.),text = ['cluster {}'.format(y[i]) for i in range (len(y))],
-                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'), 
+                            marker=go.scatter.Marker(color=y,
+                                                     size=[7.5
+                                                           for i in range(len(y))],
+                                                     line=dict(width=2,
+                                        color=['White' for i in range(len(y))]),
+                                                     opacity=1.),
+                                                  text =
+                                                  ['cluster {}'.format(y[i])
+                                                   for i in range (len(y))],
+                            showlegend=False),
+                                layout = go.Layout(title = 'Clustered syllables',
+                                                   xaxis = dict(title = 'x'),
+                                                   yaxis = dict(title = 'y'),
                             margin=dict(l=0, r=5), ))
             elif feats_type == 'deep':
                 y, scores = ar.clustering(method, n_clusters, feats_deep)
                 labels = y
-                fig = go.Figure(data = go.Scatter(x = feats_2d_d[:, 0], y = feats_2d_d[:, 1], name='',
+                fig = go.Figure(data = go.Scatter(x = feats_2d_d[:, 0],
+                                                  y = feats_2d_d[:, 1], name='',
                             mode='markers',
-                            marker=go.scatter.Marker(color=y, size=[7.5 for i in range(len(y))],  line=dict(width=2,
-                                        color=['White' for i in range(len(y))]), opacity=1.),text = ['cluster {}'.format(y[i]) for i in range (len(y))],
+                            marker=go.scatter.Marker(color=y,
+                                                     size=[7.5
+                                                           for i in range(len(y))],
+                                                     line=dict(width=2,
+                                        color=['White' for i in range(len(y))]),
+                                                     opacity=1.),text = ['cluster {}'.format(y[i]) for i in range (len(y))],
                             showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'),
                             margin=dict(l=0, r=5), ))
             data = {
@@ -633,7 +650,8 @@ if __name__ == "__main__":
          State('cluster_table', 'data'),
          State('total_annotation', 'data')
         ])
-    def update_cluster_table(method, n_clusters, feats_type, n_clicks_1, n_clicks_2, n_clicks_3, click_data, table, total):
+    def update_cluster_table(method, n_clusters, feats_type, n_clicks_1,
+                             n_clicks_2, n_clicks_3, click_data, table, total):
         global labels
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if 'intermediate_val_syllables.children' in changed_id:
