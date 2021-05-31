@@ -186,7 +186,7 @@ def get_syllables(spectral_en, means, max_values, win_step, threshold_per=40, fa
     seg_limits_2 = []
     for i, s_lim in enumerate(seg_limits):
         if s_lim[1] - s_lim[0] > min_duration:
-            # merge subsequent vocalizations with time difference less than 11 ms
+            # merge successive vocalizations with time difference less than 11 ms
             if i>0 and s_lim[0]-seg_limits[i-1][1]<=0.011:
                 seg_limits_2[-1][1] = s_lim[1]
             else:

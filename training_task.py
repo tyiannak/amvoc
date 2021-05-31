@@ -8,9 +8,12 @@ import utils
 import audio_recognize as ar
 import audio_process as ap
 import numpy as np
+import matplotlib.pyplot as plt
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
+from scipy.spatial import distance
+from scipy.special import erf, erfc
 
 config_data = utils.load_config("config.json")
 ST_WIN = config_data['params']['ST_WIN']
@@ -19,6 +22,11 @@ MIN_VOC_DUR = config_data['params']['MIN_VOC_DUR']
 F1 = config_data['params']['F1']
 F2 = config_data['params']['F2']
 thres = config_data['params']['thres']
+gamma_1 = config_data['params']['gamma_1']
+gamma_2 = config_data['params']['gamma_2']
+gamma_3 = config_data['params']['gamma_3']
+model_name = config_data['params']['model']
+num_ann_per_batch = config_data['params']['num_ann_per_batch']
 
 
 class ConvAutoencoder(nn.Module):
@@ -103,6 +111,170 @@ def load_spectrograms (filename):
                                           sp_freq, f_low, f_high,  ST_STEP, train = True))
   return train_data
 
+def PWLoss(batch, outputs, pw_constraints):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    return (1/batch)*torch.sum(torch.tensor(pw_constraints).to(device)*torch.cdist(outputs, outputs).pow(2))
+
+
+def data_prep(spectrogram):
+
+    time_limit = 64
+    for i in range(len(spectrogram)):
+        
+        if len(spectrogram[i])>time_limit:
+            spectrogram[i] = spectrogram[i][int((len(spectrogram[i])-time_limit)/2):int((len(spectrogram[i])-time_limit)/2)+time_limit,:]/np.amax(spectrogram[i])
+        elif len(spectrogram[i])<time_limit:
+            spectrogram[i] = np.pad(spectrogram[i]/np.amax(spectrogram[i]), ((int((time_limit-spectrogram[i].shape[0])/2), (time_limit-spectrogram[i].shape[0]) - int((time_limit-spectrogram[i].shape[0])/2)),(0,0)))
+        else:
+            spectrogram[i] = spectrogram[i]/np.amax(spectrogram[i])
+        # spectrogram[i] = np.array(spectrogram[i], dtype=float)
+    # print(type(spectrogram[0]))
+
+    spectrogram=np.array(spectrogram, dtype=float)
+
+    spectrogram = spectrogram.reshape(spectrogram.shape[0], 1, spectrogram.shape[1], spectrogram.shape[2])
+    dataset = TensorDataset(torch.tensor(spectrogram, dtype = torch.float))
+
+    batch_size = 32
+    train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle = False)
+    return train_loader
+
+
+def try_func(x):
+    if x>1:
+        y=-1
+    else:
+        y = -x
+    return y
+
+def train_clust(spectrogram, train_loader, outputs_init, pairwise_constraints, n_clusters):
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    
+    model = torch.load(model_name, map_location=device)
+    
+    criteria = [nn.BCELoss(),nn.KLDivLoss(reduction='batchmean')]
+
+    # specify loss function
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+    # number of epochs to train the model
+    n_epochs = 3
+    # print(spectrogram)
+    model = model.float()
+
+    clusterer = KMeans(n_clusters=n_clusters, random_state=9)
+
+    y = clusterer.fit_predict(np.array(outputs_init,dtype=object))
+    kmeans_centers = clusterer.cluster_centers_
+    epoch = 0
+    train_loss=0.0
+    end=False
+
+    for epoch in range(n_epochs):
+        if train_loss<-0.1 and epoch>1:
+            # print(epoch)
+            break
+        train_loss = 0.0
+        outputs_ = []
+        answer = 'start'
+        for i,feats in enumerate(train_loader):
+        # monitor training loss
+            if i ==0:
+                batch_size = feats[0].shape[0]
+                
+            batch = feats[0].shape[0]
+            feats[0] = feats[0].to(device)
+            ###################
+            # train the model #
+            ###################
+            
+            # _ stands in for labels, here
+            model.train()
+            # clear the gradients of all optimized variables
+            optimizer.zero_grad()
+            # forward pass: compute predicted outputs by passing inputs to the model
+            outputs, rec, distr = model(feats[0].float(), decode = True, clustering = True, kmeans_centers = torch.tensor(kmeans_centers).to(device).float())
+
+            outputs_ += outputs
+            f_j = torch.sum(distr, dim=0)
+            p = (distr.pow(2)/f_j.view(1, f_j.shape[0]))/torch.sum(distr.pow(2)/f_j.view(1, f_j.shape[0]), dim=1).view(torch.sum(distr.pow(2)/f_j.view(1, f_j.shape[0]), dim=1).shape[0],1)
+            cnt = 0
+            
+            if epoch==0:
+                while (1):
+                    dist = torch.cdist(outputs, outputs).cpu().detach().numpy()
+                    max_ = np.amax(distr.cpu().detach().numpy(), axis=1)
+                    max_ind = np.argmax(distr.cpu().detach().numpy(), axis=1)
+                    sorted_max_ind = np.argsort(max_)
+                    x = sorted_max_ind[cnt]
+                    # x = np.random.randint(feats[0].shape[0])
+                    y = np.random.randint(feats[0].shape[0])
+                
+                    if (i*batch+x)<len(pairwise_constraints) and (i*batch+y)<len(pairwise_constraints):
+                        if x==y or pairwise_constraints[i*batch+x, i*batch+y]!=0  or pairwise_constraints[i*batch+y, i*batch+x]!=0:
+                            continue
+                        else:
+                            cnt += 1
+                    plt.ion()
+                    plt.show()
+                    if answer!='stop':
+                        plt.figure(figsize=(5,5))
+                        plt.subplot(1,2,1)
+                        plt.imshow(np.flip(spectrogram[i*batch+x], axis=1).T)
+                        plt.subplot(1,2,2)
+                        plt.imshow(np.flip(spectrogram[i*batch+y], axis=1).T)
+                        plt.pause(0.001)
+                        plt.draw()
+                        print()
+                        answer = input("Should the two vocalizations belong to the same cluster? (y/n). If you want to stop, type 'stop'. \n")
+                        plt.close()
+                        
+                    while (answer!='stop'):
+                        if answer=='y':
+
+                            pairwise_constraints[i*batch+x, i*batch+y] = erf(25/dist[x,y])
+                            pairwise_constraints[i*batch+y, i*batch+x] = erf(25/dist[x,y])
+
+                            break
+                        elif answer=='n':
+                            pairwise_constraints[i*batch+x, i*batch+y] = erf(-25/dist[x,y])
+                            pairwise_constraints[i*batch+y, i*batch+x] = erf(-25/dist[x,y])
+
+                            break
+                        else:
+                            print()
+                            answer = input("Please provide a new answer (y/n) \n")
+                    if cnt == num_ann_per_batch:
+                        break
+
+            loss = gamma_1*criteria[0](rec, feats[0].float())+gamma_2*criteria[1](torch.log(distr),p) + gamma_3*(1/(epoch+1))*PWLoss(batch_size, outputs, pairwise_constraints[i*batch:(i+1)*batch, i*batch:(i+1)*batch])
+    
+            # backward pass: compute gradient of the loss with respect to model parameters
+            loss.backward()
+            # perform a single optimization step (parameter update)
+            optimizer.step()
+            
+            train_loss += loss.item()
+
+        plt.close()
+        for i in range(len(outputs_)):
+            outputs_[i] = outputs_[i].cpu().detach().numpy().flatten()
+
+        clusterer = KMeans(n_clusters=kmeans_centers.shape[0], random_state=9)
+
+        y = clusterer.fit_predict(np.array(outputs_,dtype=object))
+        kmeans_centers = clusterer.cluster_centers_
+
+        train_loss = train_loss/len(train_loader)
+        print('Epoch: {} \tTraining Loss: {:.6f}'.format(
+                epoch, 
+                train_loss
+                ))
+    print("TRAINING IS DONE")
+    return model
+
+
 if __name__ == '__main__':
 
     args = parse_arguments()
@@ -144,14 +316,6 @@ if __name__ == '__main__':
         train_data = list(train_data[y==1])
     else:
         train_data= list(train_data[y==0])
-
-    # # histogram of durations (in samples) of all the spectrograms
-    # # based on that, we choose the width of the spectrograms to be 64 samples (it has to be multiple of 4 because of the 3 max pooling layers)
-    # duration = []
-    # for image in train_data:
-    #     duration.append(image.shape[0])
-    # plt.hist(duration, bins = range(min(duration), max(duration)))
-    # plt.show()
 
     time_limit = 64
     # cropping/padding the images and normalizing between (0,1)
@@ -238,20 +402,20 @@ if __name__ == '__main__':
     #         test_data[i] = test_data[i]/np.amax(test_data[i])
 
     # test_data=np.array(test_data)
-    test_data = test_data.reshape(test_data.shape[0], 1, test_data.shape[1], test_data.shape[2])
-    test_dataset = TensorDataset(torch.tensor(test_data, dtype = torch.float))
+    # test_data = test_data.reshape(test_data.shape[0], 1, test_data.shape[1], test_data.shape[2])
+    # test_dataset = TensorDataset(torch.tensor(test_data, dtype = torch.float))
 
-    batch_size = 32
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle = False)
-    outputs = []
-    model.train()
-    with torch.no_grad():
-        for data in test_loader:
-            outputs += model(data[0].to(device))
+    # batch_size = 32
+    # test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle = False)
+    # outputs = []
+    # model.train()
+    # with torch.no_grad():
+    #     for data in test_loader:
+    #         outputs += model(data[0].to(device))
 
 
-    for i in range(len(outputs)):
-        outputs[i] = outputs[i].cpu().detach().numpy()
+    # for i in range(len(outputs)):
+    #     outputs[i] = outputs[i].cpu().detach().numpy()
 
 
     # Reconstruction example

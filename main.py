@@ -30,6 +30,12 @@ import time
 from sys import exit
 import json
 import csv
+from sklearn.svm import SVC
+from sklearn.cluster import KMeans
+import pickle
+import training_task as tr_t
+import umap
+import joblib
 
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
@@ -41,31 +47,37 @@ F1 = config_data['params']['F1']
 F2 = config_data['params']['F2']
 thres = config_data['params']['thres']
 factor = config_data['params']['factor']
+gamma_1 = config_data['params']['gamma_1']
+gamma_2 = config_data['params']['gamma_2']
+gamma_3 = config_data['params']['gamma_3']
+model_name = config_data['params']['model']
 
 
 class ConvAutoencoder(nn.Module):
-    def __init__(self):
+    def __init__(self, n_clusters = 5, kmeans_centers=None):
         super(ConvAutoencoder, self).__init__()
         ## encoder layers ##
-        # conv layer (depth from 1 --> 64), 3x3 kernels
+        # conv layer (depth from 3 --> 64), 3x3 kernels
         self.conv1 = nn.Conv2d(1, 64, 3, padding =1)  
         # conv layer (depth from 64 --> 32), 3x3 kernels
         self.conv2 = nn.Conv2d(64, 32, 3, padding=1)
-        # conv layer (depth from 32 --> 8), 3x3 kernels
+        # conv layer (depth from 32 --> 16), 3x3 kernels
         self.conv3 = nn.Conv2d(32, 8, 3, padding=1)
 
         self.pool = nn.MaxPool2d((2,2), 2)
 
+        self.flatten = nn.Flatten()
         ## decoder layers ##
         # a kernel of 2 and a stride of 2 will increase the spatial dims by 2
         self.t_conv1 = nn.ConvTranspose2d(8, 32, 2, stride=2)
         self.t_conv2 = nn.ConvTranspose2d(32, 64, 2, stride=2)
         self.t_conv3 = nn.ConvTranspose2d(64, 1, 2, stride=2)
 
-    def forward(self, x):
+    def forward(self, x, decode = True, clustering = False, kmeans_centers=None):
         ## encode ##
         # add hidden layers with relu activation function
         # and maxpooling after
+        # print(x.shape)
         x = F.relu(self.conv1(x))
         x = self.pool(x)
         # add second hidden layer
@@ -74,14 +86,33 @@ class ConvAutoencoder(nn.Module):
         # add third hidden layer
         x = F.relu(self.conv3(x))
         x = self.pool(x) # compressed representation
+       
 
-        if self.training:
+        if self.training and decode:
             ## decode ##
             # add transpose conv layers, with relu activation function
-            x = F.relu(self.t_conv1(x))        
-            x = F.relu(self.t_conv2(x))
+            y = F.relu(self.t_conv1(x))        
+            y = F.relu(self.t_conv2(y))
             # output layer (with sigmoid for scaling from 0 to 1)
-            x = F.sigmoid(self.t_conv3(x))      
+            y = F.sigmoid(self.t_conv3(y)) 
+            if not clustering:
+              return x, y
+
+        if self.training and clustering:
+            
+            x = self.flatten(x)
+        #  print((1+(torch.cdist(torch.reshape(x,(1,x.shape[0],x.shape[1])), torch.reshape(kmeans_centers,(1,kmeans_centers.shape[0],kmeans_centers.shape[1])))).pow(2)).pow(-1))
+        #  print(x.shape)
+        #  print(kmeans_centers.shape)
+            dist =torch.cdist(x, kmeans_centers)
+        #  dist = torch.reshape(dist,(dist.shape[1], dist.shape[2]))
+        #  print((1+dist.pow(2)).pow(-1).shape)
+        #  print(torch.sum((1+dist.pow(2)).pow(-1),dim=1).view(torch.sum((1+dist.pow(2)).pow(-1),dim=1).shape[0],1).shape)
+            q = ((1+dist.pow(2)).pow(-1))/torch.sum((1+dist.pow(2)).pow(-1),dim=1).view(torch.sum((1+dist.pow(2)).pow(-1),dim=1).shape[0],1)
+            if decode:
+                return x, y, q
+            else:
+                return x, q
         return x
 
 def parse_arguments():
@@ -111,7 +142,6 @@ def get_shapes(segments, freq1, freq2):
 
 def get_layout(spec=False):
 
-    global list_contour, segments, images, f1, f2, feats_simple, feats_deep, feats_2d_s, feats_2d_d, seg_limits, syllables
     seg_limits, thres_sm = ap.get_syllables(spectral_energy,
                                                means,
                                                max_values,
@@ -129,14 +159,14 @@ def get_layout(spec=False):
     if continue_=="n":
         exit()       
 
-    images, f_points, f_points_init, \
-    [feats_simple, feats_deep], feat_names, [f1, f2], segments, seg_limits = ar.cluster_syllables(seg_limits, spectrogram,
-                                             sp_freq, f_low, f_high,  ST_STEP)
-
-    tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
-    feats_2d_s = tsne.fit_transform(feats_simple)
-    tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
-    feats_2d_d = tsne.fit_transform(feats_deep)
+    specs, images, f_points, f_points_init, \
+    [feats_simple, feats_deep, outputs_deep], feat_names, [f1, f2], segments, seg_limits, selector, scaler, pca = ar.cluster_syllables(seg_limits, spectrogram,
+                                             sp_freq, f_low, f_high,  ST_STEP, model_name=model_name)
+    reducer = umap.UMAP(random_state=1)
+    # tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
+    feats_2d_s = reducer.fit_transform(feats_simple)
+    # tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
+    feats_2d_d = reducer.fit_transform(feats_deep)
     list_contour = np.array(f_points, dtype=object)
     images = np.array(images, dtype=object) 
     f_points_all, f_points_init_all = [[], []], [[], []]
@@ -174,6 +204,23 @@ def get_layout(spec=False):
     syllables = [{"st": s[0], "et": s[1]}
                  for iS, s in enumerate(seg_limits)]
 
+    #save necessary 
+    np.save('./dash/list_contour.npy', list_contour)
+    np.save('./dash/segments.npy', segments)
+    np.save('./dash/images.npy', images, allow_pickle=True)
+    np.save('./dash/f1.npy', f1)
+    np.save('./dash/f2.npy', f2)
+    np.save('./dash/feats_simple.npy', feats_simple)
+    np.save('./dash/feats_deep.npy', feats_deep)
+    np.save('./dash/outputs_deep.npy', outputs_deep)
+    np.save('./dash/feats_2d_s.npy', feats_2d_s)
+    np.save('./dash/feats_2d_d.npy', feats_2d_d)
+    np.save('./dash/seg_limits.npy', seg_limits)
+    np.save('./dash/syllables.npy', syllables)
+    np.save('./dash/specs.npy', specs)
+    joblib.dump(selector, './dash/vt_selector.bin', compress=True)
+    joblib.dump(scaler, './dash/std_scaler.bin', compress=True)
+    joblib.dump(pca, './dash/pca.bin', compress=True)
     shapes1 = get_shapes(seg_limits, f_low, f_high)
     if spec:
         layout = dbc.Container([
@@ -261,15 +308,31 @@ def get_layout(spec=False):
                     ),
                     width=2,
                 ),
-                html.Table([
-                html.Tr([html.Td(['Silhouette score']), html.Td(id='silhouette')]),
-                html.Tr([html.Td(['Calinski-Harabasz score']), html.Td(id='cal-har')]),
-                html.Tr([html.Td(['Davies-Bouldin score']), html.Td(id='dav-bould')]),
-            ]),
+                dbc.Col(
+                    html.Button('Save clustering', id='btn_f', n_clicks=0),  
+                    width=2,
+                    style={'display': 'block'}
+                ),
+                dbc.Col(
+                    html.Button('Retrain model', id='btn_r', n_clicks=0),  
+                    width=2,
+                    style={'display': 'block'}
+                ),
+                dbc.Col(
+                    html.Button('Save model', id='btn_s', n_clicks=0),  
+                    width=2,
+                    style={'display': 'block'}
+                ),
+            #     html.Table([
+            #     html.Tr([html.Td(['Silhouette score']), html.Td(id='silhouette')]),
+            #     html.Tr([html.Td(['Calinski-Harabasz score']), html.Td(id='cal-har')]),
+            #     html.Tr([html.Td(['Davies-Bouldin score']), html.Td(id='dav-bould')]),
+            # ]),
             ]),
             dbc.Row([dbc.Col(html.Div(children = "Global cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Specific cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Point annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
+                    dbc.Col(html.Div(children= "Alternative cluster"), width=3, style={'marginBottom': 20, 'marginTop': 20})
             ]),
             dbc.Row([
             dbc.Col(
@@ -317,6 +380,12 @@ def get_layout(spec=False):
                 ),
             dbc.Col(     
                 html.Button('Submit', id='btn_1', n_clicks=0),  
+                    width=1,
+                    style={'display': 'block'}
+            ),
+            dbc.Col(dcc.Input(id="input1", type="number", value="0", maxLength=1, style={'width':'95%'}, min=0, max=9),width = 1),
+            dbc.Col(     
+                html.Button('Submit', id='btn_4', n_clicks=0),  
                     width=1,
                     style={'display': 'block'}
             ),
@@ -383,15 +452,31 @@ def get_layout(spec=False):
                     ),
                     width=2,
                 ),
-                html.Table([
-                html.Tr([html.Td(['Silhouette score']), html.Td(id='silhouette')]),
-                html.Tr([html.Td(['Calinski-Harabasz score']), html.Td(id='cal-har')]),
-                html.Tr([html.Td(['Davies-Bouldin score']), html.Td(id='dav-bould')]),
-            ]),
+                dbc.Col(
+                    html.Button('Save clustering', id='btn_f', n_clicks=0),  
+                    width=2,
+                    style={'display': 'block'}
+                ),
+                dbc.Col(
+                    html.Button('Retrain model', id='btn_r', n_clicks=0),  
+                    width=2,
+                    style={'display': 'block'}
+                ),
+                dbc.Col(
+                    html.Button('Update', id='btn_s', n_clicks=0),  
+                    width=2,
+                    style={'display': 'block'}
+                ),
+            #     html.Table([
+            #     html.Tr([html.Td(['Silhouette score']), html.Td(id='silhouette')]),
+            #     html.Tr([html.Td(['Calinski-Harabasz score']), html.Td(id='cal-har')]),
+            #     html.Tr([html.Td(['Davies-Bouldin score']), html.Td(id='dav-bould')]),
+            # ]),
             ]),
             dbc.Row([dbc.Col(html.Div(children = "Global cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Specific cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Point annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
+                    dbc.Col(html.Div(children= "Alternative cluster"), width=3, style={'marginBottom': 20, 'marginTop': 20})
             ]),
             dbc.Row([
             dbc.Col(
@@ -442,6 +527,12 @@ def get_layout(spec=False):
                     width=1,
                     style={'display': 'block'}
             ),
+            dbc.Col(dcc.Input(id="input1", type="number", value="0", maxLength=1, style={'width':'95%'}, min=0, max=9),width = 1),
+            dbc.Col(     
+                html.Button('Submit', id='btn_4', n_clicks=0),  
+                    width=1,
+                    style={'display': 'block'}
+            ),
             ]),
             dbc.Row([dbc.Col(
                 dcc.Graph(id='cluster_graph'), width = 9, md = 8, style={'marginLeft': 0}),
@@ -464,19 +555,27 @@ def get_layout(spec=False):
             dbc.Row(id='intermediate_val_syllables', style={'display': 'none'}),
             dbc.Row(id='intermediate_val_total_clusters', style={'display': 'none'}),
             dbc.Row(id='intermediate_val_clusters', style={'display': 'none'}),
-            dbc.Row(id='clustering_info',
-                     style={'display': 'none'})
+            dbc.Row(id='clustering_info', style={'display': 'none'}),
+            dbc.Row(id='save_clustering', style={'display':'none'}),
+            dbc.Row(id='retrain_model', style={'display':'none'}),
+            dbc.Row(id='update', style={'display':'none'}),
+            dbc.Row(id='pairs', style={'display':'none'}),
         ], style={"height": "100vh"})
     return layout
 
 
 if __name__ == "__main__":
     args = parse_arguments()
-    global sp_time, sp_freq, moves, click_index
     click_index =-1
     time_start = time.time()
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
                                                            ST_WIN, ST_STEP)
+
+    # save necessary
+    np.save('./dash/sp_time.npy', sp_time)
+    np.save('./dash/sp_freq.npy', sp_freq)
+    np.save('./dash/click_index.npy', click_index)
+    np.save('./dash/spectrogram.npy', spectrogram)
 
     with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
         x = json.dumps({'input_file': args.input_file.split('/')[-1], 'total_cluster_annotations': [], 'cluster_annotations': [], 'point_annotations': []}, indent=4)
@@ -541,101 +640,269 @@ if __name__ == "__main__":
             syllable_label = ""
         return "{0:.2f}".format(t1), "{0:.2f}".format(t2), syllable_label
                
-
     @app.callback(
         [Output('cluster_graph', 'figure'),
-         Output('silhouette', 'children'),
-         Output('cal-har', 'children'),
-         Output('dav-bould', 'children'),
          Output('clustering_info', 'children'),],
         [Input('dropdown_cluster', 'value'),
          Input('dropdown_n_clusters', 'value'),
          Input('dropdown_feats_type', 'value'), 
-         Input('intermediate_val_syllables', 'children'),],
-        [State('silhouette', 'children'),
-         State('cal-har', 'children'),
-         State('dav-bould', 'children'),
-         State('clustering_info', 'children'),
+         Input('intermediate_val_syllables', 'children'),
+         Input('update', 'children'),
+         Input('pairs', 'children')],
+        [State('clustering_info', 'children'),
          State('cluster_graph', 'clickData'),
          State('cluster_graph', 'figure'),
         ])
-    def update_cluster_graph(method, n_clusters, feats_type, n_clicks_3, sil,
-                             cal_har, dav_bould, clust_info, click_data, fig):
-        global labels,click_index
+    def update_cluster_graph(method, n_clusters, feats_type, n_clicks_3, update, pairs, 
+                            clust_info, click_data, fig):
+       
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
-        if 'intermediate_val_syllables.children' in changed_id:
-            if click_data and (n_clicks_3=='approve' or n_clicks_3=='reject'):
+        click_index = np.load('./dash/click_index.npy')
+
+        if ('intermediate_val_syllables.children' in changed_id) or ('pairs.children' in changed_id):
+            if click_data and (n_clicks_3[0]=='approve' or n_clicks_3[0]=='reject'):
                 index=click_data['points'][0]['pointIndex']
                 fig['data'][0]['marker']['size'][index]=10
-                if n_clicks_3 == 'approve':
+                if n_clicks_3[0] == 'approve':
                     fig['data'][0]['marker']['line']['color'][index]='Green'
                 else:
                     fig['data'][0]['marker']['line']['color'][index]='Red'
                 click_index = -1
-                return fig, sil, cal_har, dav_bould, clust_info
+                np.save('./dash/click_index.npy', click_index)
+                return fig, clust_info
 
+            elif click_data and pairs:
+                index=click_data['points'][0]['pointIndex']
+                fig['data'][0]['marker']['size'][index]=10
+                fig['data'][0]['marker']['line']['color'][index]='Black'
+                return fig, clust_info
             elif click_data:
                 index=click_data['points'][0]['pointIndex']
                 fig['data'][0]['marker']['size'][index]=10
                 if click_index != -1 and click_index != index:
                     fig['data'][0]['marker']['size'][click_index]=7.5
-                click_index = index
+                click_index = index 
+                np.save('./dash/click_index.npy', click_index)
+                return fig, clust_info
+        specs= np.load('./dash/specs.npy')
+        pairwise_constraints = np.zeros((len(specs), len(specs)))
+        old_labels = [[] for i in range(n_clusters)]
+        new_labels = [[] for i in range(n_clusters)]
+        with open("./dash/old_labels.txt", "w") as fp:
+            json.dump(old_labels, fp)
+        with open("./dash/new_labels.txt", "w") as fp:
+            json.dump(new_labels, fp)
+        np.save('./dash/pw.npy', pairwise_constraints)
+        if feats_type == 'simple':
+            feats_simple = np.load('./dash/feats_simple.npy')
+            feats_2d_s = np.load('./dash/feats_2d_s.npy')
+            y, scores = ar.clustering(method, n_clusters, feats_simple)
+            # labels = y
+            np.save('./dash/labels.npy', y)
+            np.save('./dash/centers.npy', centers)
+            fig = go.Figure(data = go.Scatter(x = feats_2d_s[:, 0],
+                                                y = feats_2d_s[:, 1], name='',
+                        mode='markers',
+                        marker=go.scatter.Marker(color=y,
+                                                    size=[7.5
+                                                        for i in range(len(y))],
+                                                    line=dict(width=2,
+                                    color=['White' for i in range(len(y))]),
+                                                    opacity=1.),
+                                                text =
+                                                ['cluster {}'.format(y[i])
+                                                for i in range (len(y))],
+                        showlegend=False),
+                            layout = go.Layout(title = 'Clustered syllables',
+                                                xaxis = dict(title = 'x'),
+                                                yaxis = dict(title = 'y'),
+                        margin=dict(l=0, r=5), ))
+        elif feats_type == 'deep':
+            feats_deep = np.load('./dash/feats_deep.npy')
+            feats_2d_d = np.load('./dash/feats_2d_d.npy')
+            y, scores = ar.clustering(method, n_clusters, feats_deep)
+            # labels = y
+            np.save('./dash/labels.npy', y)
+            # np.save('./dash/centers.npy', centers)
+            fig = go.Figure(data = go.Scatter(x = feats_2d_d[:, 0],
+                                                y = feats_2d_d[:, 1], name='',
+                        mode='markers',
+                        marker=go.scatter.Marker(color=y,
+                                                    size=[7.5
+                                                        for i in range(len(y))],
+                                                    line=dict(width=2,
+                                    color=['White' for i in range(len(y))]),
+                                                    opacity=1.),text = ['cluster {}'.format(y[i]) for i in range (len(y))],
+                        showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'),
+                        margin=dict(l=0, r=5), ))
+        data = {
+            "method": method,
+            "number_of_clusters": n_clusters,
+            "features_type": feats_type,
+            # "clustering": labels 
+        }
+        fig = fig.to_dict()
+        with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
+            loaded_data=json.load(infile)
+        for annotation in loaded_data['point_annotations']:
+            if annotation['method'] == method and annotation['number_of_clusters'] == n_clusters and annotation['features_type']==feats_type:
+                index=annotation['index']
+                fig['data'][0]['marker']['size'][index]=10
+                if annotation['annotation'] == 'approve':
+                    fig['data'][0]['marker']['line']['color'][index]='Green'
+                else:
+                    fig['data'][0]['marker']['line']['color'][index]='Red'
+        return fig, data
 
-                return fig, sil, cal_har, dav_bould, clust_info
-        else:
-            if feats_type == 'simple':
-                y, scores = ar.clustering(method, n_clusters, feats_simple)
-                labels = y
-                fig = go.Figure(data = go.Scatter(x = feats_2d_s[:, 0],
-                                                  y = feats_2d_s[:, 1], name='',
-                            mode='markers',
-                            marker=go.scatter.Marker(color=y,
-                                                     size=[7.5
-                                                           for i in range(len(y))],
-                                                     line=dict(width=2,
-                                        color=['White' for i in range(len(y))]),
-                                                     opacity=1.),
-                                                  text =
-                                                  ['cluster {}'.format(y[i])
-                                                   for i in range (len(y))],
-                            showlegend=False),
-                                layout = go.Layout(title = 'Clustered syllables',
-                                                   xaxis = dict(title = 'x'),
-                                                   yaxis = dict(title = 'y'),
-                            margin=dict(l=0, r=5), ))
-            elif feats_type == 'deep':
-                y, scores = ar.clustering(method, n_clusters, feats_deep)
-                labels = y
-                fig = go.Figure(data = go.Scatter(x = feats_2d_d[:, 0],
-                                                  y = feats_2d_d[:, 1], name='',
-                            mode='markers',
-                            marker=go.scatter.Marker(color=y,
-                                                     size=[7.5
-                                                           for i in range(len(y))],
-                                                     line=dict(width=2,
-                                        color=['White' for i in range(len(y))]),
-                                                     opacity=1.),text = ['cluster {}'.format(y[i]) for i in range (len(y))],
-                            showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'),
-                            margin=dict(l=0, r=5), ))
-            data = {
-                "method": method,
-                "number_of_clusters": n_clusters,
-                "features_type": feats_type,
-                # "clustering": labels 
-            }
-            fig = fig.to_dict()
-            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
-                loaded_data=json.load(infile)
-            for annotation in loaded_data['point_annotations']:
-                if annotation['method'] == method and annotation['number_of_clusters'] == n_clusters and annotation['features_type']==feats_type:
-                    index=annotation['index']
-                    fig['data'][0]['marker']['size'][index]=10
-                    if annotation['annotation'] == 'approve':
-                        fig['data'][0]['marker']['line']['color'][index]='Green'
-                    else:
-                        fig['data'][0]['marker']['line']['color'][index]='Red'
-        print(scores)
-        return fig, round(scores[0],3), round(scores[1]), round(scores[2],3), data
+    @app.callback(
+        Output('save_clustering', 'children'),
+        [Input('dropdown_cluster', 'value'),
+         Input('dropdown_n_clusters', 'value'),
+         Input('dropdown_feats_type', 'value'), 
+         Input('btn_f', 'n_clicks')]
+    )
+    def save(method, n_clusters, feats_type, n_clicks_f):
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]        
+        if n_clicks_f and n_clicks_f!='no' and 'btn_f' in changed_id:
+            clf=SVC()
+            labels = np.load('./dash/labels.npy')
+            with open("./dash/new_labels.txt", "r") as fp:
+                new_labels = json.load(fp)
+            for i, entry in enumerate(new_labels):
+                for point in entry:
+                    labels[point] = i
+            np.save('labels_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0]), labels)
+            if feats_type=='simple':
+                feats_simple = np.load('./dash/feats_simple.npy')
+                clf.fit(feats_simple,labels)
+            else:
+                feats_deep = np.load('./dash/feats_deep.npy')
+                clf.fit(feats_deep,labels)
+                # print(clf.score(feats_deep, labels))
+            # centers = np.load('./dash/centers.npy')
+            # np.save('centers_{}_{}_{}_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), centers)
+            pickle.dump(clf, open('clf_{}_{}_{}_{}.sav'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), 'wb'))
+            joblib.dump(joblib.load('./dash/vt_selector.bin'), 'vt_selector_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
+            joblib.dump(joblib.load('./dash/std_scaler.bin'),'std_scaler_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
+            joblib.dump(joblib.load('./dash/pca.bin'),'pca_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
+            print("SAVED")
+
+
+    @app.callback(
+        Output('pairs', 'children'),
+        [Input('input1', 'value'),
+         Input('dropdown_n_clusters', 'value'),
+         Input('cluster_graph', 'clickData'),
+         Input('btn_4', 'n_clicks')]
+    )
+    def update_pairs(input, n_clusters, click_data, n_clicks_r):
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0] 
+        # global pairwise_constraints
+        labels = np.load('./dash/labels.npy')
+        if click_data and int(input)<n_clusters and 'btn_4' in changed_id:
+            current_point=click_data['points'][0]['pointIndex']
+            if int(input) != labels[current_point]:
+                indices=np.where(labels == labels[current_point])[0]
+                # old_labels = list(np.load('./dash/old_labels.npy'))
+                with open("./dash/old_labels.txt", "r") as fp:
+                    old_labels = json.load(fp)
+                old_labels[labels[current_point]].append(current_point)
+                indices=np.delete(indices,np.where(indices == old_labels[labels[current_point]])[0])
+                pairwise_constraints=np.load('./dash/pw.npy')
+                indices = np.where(labels!=int(input))
+                with open("./dash/new_labels.txt", "r") as fp:
+                    new_labels = json.load(fp)
+                # print(np.where(pairwise_constraints==1)[0])
+                pairwise_constraints[current_point,indices] = -0.5
+                pairwise_constraints[indices, current_point] = -0.5
+                
+                # pairwise_constraints[current_point, ]
+
+                indices = np.where(labels==int(input))[0]
+                indices = list(indices) + new_labels[int(input)]
+                pairwise_constraints[current_point,indices] = 1
+                pairwise_constraints[indices, current_point] = 1
+                new_labels[int(input)].append(current_point)
+                print(old_labels)
+                print(new_labels)
+                with open("./dash/old_labels.txt", "w") as fp:
+                    json.dump(old_labels, fp)
+                with open("./dash/new_labels.txt", "w") as fp:
+                    json.dump(new_labels, fp)
+                np.save('./dash/pw.npy', pairwise_constraints)
+                # print(np.where(pairwise_constraints==1)[0])
+                return True
+                
+        return False
+
+    @app.callback(
+        Output('retrain_model', 'children'),
+        [Input('dropdown_cluster', 'value'),
+         Input('dropdown_n_clusters', 'value'),
+         Input('dropdown_feats_type', 'value'), 
+         Input('btn_r', 'n_clicks')]
+    )
+    def retrain(method, n_clusters, feats_type, n_clicks_r):
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]   
+        retrained=False     
+        if n_clicks_r and n_clicks_r!='no' and 'btn_r' in changed_id:
+            specs=np.load('./dash/specs.npy')
+            train_loader = tr_t.data_prep(specs)
+            labels = np.load('./dash/labels.npy')
+            pairwise_constraints=np.load('./dash/pw.npy')
+            spectrogram = np.load('./dash/images.npy', allow_pickle=True)
+            outputs = np.load('./dash/outputs_deep.npy')
+            model = tr_t.train_clust(spectrogram, train_loader, outputs, pairwise_constraints, n_clusters)
+            path = "./dash/model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type)
+            torch.save(model, path)
+
+            retrained=True
+        return retrained
+    
+    @app.callback(
+        Output('update', 'children'),
+        [Input('dropdown_cluster', 'value'),
+         Input('dropdown_n_clusters', 'value'),
+         Input('dropdown_feats_type', 'value'),
+         Input('btn_s', 'n_clicks')]
+    )
+    def update_clustering(method, n_clusters, feats_type, n_clicks_s):
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]        
+        if n_clicks_s and n_clicks_s!='no' and 'btn_s' in changed_id:
+            print("UPDATING...")
+            path = "./dash/model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type)
+            seg_limits = np.load('./dash/seg_limits.npy')
+            spectrogram = np.load('./dash/spectrogram.npy')
+            sp_freq = np.load('./dash/sp_freq.npy')
+            specs, images, f_points, f_points_init, \
+            [feats_simple, feats_deep, outputs_deep], feat_names, [f1, f2], segments, seg_limits, selector, scaler, pca = ar.cluster_syllables(seg_limits, spectrogram,
+                                                    sp_freq, f_low, f_high,  ST_STEP, model_name=path)
+            reducer = umap.UMAP(random_state=1)
+            # tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
+            feats_2d_s = reducer.fit_transform(feats_simple)
+            # tsne = TSNE(n_components=2, perplexity = 50, n_iter = 5000, random_state = 1)
+            feats_2d_d = reducer.fit_transform(feats_deep)
+            list_contour = np.array(f_points, dtype=object)
+            images = np.array(images, dtype=object) 
+
+            np.save('./dash/list_contour.npy', list_contour)
+            np.save('./dash/segments.npy', segments)
+            np.save('./dash/images.npy', images)
+            np.save('./dash/f1.npy', f1)
+            np.save('./dash/f2.npy', f2)
+            np.save('./dash/feats_simple.npy', feats_simple)
+            np.save('./dash/feats_deep.npy', feats_deep)
+            np.save('./dash/outputs_deep.npy', outputs_deep)
+            np.save('./dash/feats_2d_s.npy', feats_2d_s)
+            np.save('./dash/feats_2d_d.npy', feats_2d_d)
+            np.save('./dash/seg_limits.npy', seg_limits)
+            joblib.dump(selector, './dash/vt_selector.bin', compress=True)
+            joblib.dump(scaler, './dash/std_scaler.bin', compress=True)
+            joblib.dump(pca, './dash/pca.bin', compress=True)
+            
+            print("DONE")
+            return True
+        return False
 
     @app.callback(
         [Output('cluster_table', 'data'),
@@ -652,17 +919,19 @@ if __name__ == "__main__":
         ])
     def update_cluster_table(method, n_clusters, feats_type, n_clicks_1,
                              n_clicks_2, n_clicks_3, click_data, table, total):
-        global labels
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if 'intermediate_val_syllables.children' in changed_id:
             if click_data and  n_clicks_3!='{}':
-                index=click_data['points'][0]['pointIndex']
-                table[int(labels[index])]['Annotated points'] +=1
+                if not n_clicks_3[1]:
+                    labels = np.load('./dash/labels.npy')
+                    index=click_data['points'][0]['pointIndex']
+                    table[int(labels[index])]['Annotated points'] +=1
                 return table, total
             elif click_data:
                 return table, total
         elif 'intermediate_val_clusters.children' in changed_id:
             if click_data and  n_clicks_2!='{}':
+                labels = np.load('./dash/labels.npy')
                 index=click_data['points'][0]['pointIndex']
                 table[int(labels[index])]['Cluster annotation'] = int(n_clicks_2)
                 return table, total
@@ -694,7 +963,6 @@ if __name__ == "__main__":
             total = [{'Global annotation': total}]
         return table, total
 
-    
     @app.callback(
         Output('intermediate_val_syllables', 'children'),
         [Input('cluster_graph', 'clickData'),
@@ -705,7 +973,8 @@ if __name__ == "__main__":
     def point_annotation(click_data, val, info, n_clicks):
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if click_data and (val=='approve' or val=='reject') and 'btn_1' in changed_id:
-
+            labels = np.load('./dash/labels.npy')
+            syllables = np.load('./dash/syllables.npy')
             point_info = {'index': click_data['points'][0]['pointIndex'] , 
                           'class': int(labels[click_data['points'][0]['pointIndex']]), 
                           'start time': syllables[click_data['points'][0]['pointIndex']]['st'], 'end time': syllables[click_data['points'][0]['pointIndex']]['et'],
@@ -727,7 +996,7 @@ if __name__ == "__main__":
                     data['point_annotations'].append(point_info)
                 x = json.dumps(data, indent=2)
                 outfile.write(x)
-            return val
+            return val, ready
 
         return '{}'
 
@@ -800,6 +1069,12 @@ if __name__ == "__main__":
             index = hoverData['points'][0]['pointIndex']
         else:
             index = 0
+        segments=np.load('./dash/segments.npy')
+        sp_time = np.load('./dash/sp_time.npy')
+        sp_freq = np.load('./dash/sp_freq.npy')
+        images = np.load('./dash/images.npy', allow_pickle=True)
+        f1 = np.load('./dash/f1.npy')
+        f2 = np.load('./dash/f2.npy')
         fig = go.Figure(data = go.Heatmap(x =sp_time[segments[index][0]:segments[index][1]], y=sp_freq[f1:f2], z = (images[index].T)/np.amax(images[index]), 
         showscale=False),
                         layout = go.Layout(title = 'Spectrogram of syllable', margin={'l': 0, 'b': 40, 't': 40, 'r': 0}, 
@@ -816,6 +1091,8 @@ if __name__ == "__main__":
             index = hoverData['points'][0]['pointIndex']
         else:
             index = 0
+        sp_freq = np.load('./dash/sp_freq.npy')
+        list_contour = np.load('./dash/list_contour.npy', allow_pickle=True)
         fig = go.Figure(data = go.Scatter(x = list_contour[index][0], y=list_contour[index][1], mode='lines+markers'), 
                         layout = go.Layout(title = 'Points of max frequency per time window of syllable', margin=dict(l=0, r=0, b=40, t=40, pad=4), 
                                         xaxis=dict(visible=True, title = 'Time (Sec)'), yaxis=dict(visible=True, autorange=False, range=[sp_freq[0], sp_freq[-1]], title='Freq (Hz)')))

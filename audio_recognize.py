@@ -8,7 +8,7 @@ Maintainer: Theodoros Giannakopoulos {tyiannak@gmail.com}
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from sklearn.cluster import KMeans, MeanShift, DBSCAN, AgglomerativeClustering, AffinityPropagation, Birch, MiniBatchKMeans, OPTICS, SpectralClustering,estimate_bandwidth
+from sklearn.cluster import KMeans, AgglomerativeClustering, Birch, MiniBatchKMeans, estimate_bandwidth
 from sklearn.svm import SVR
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_samples, silhouette_score, calinski_harabasz_score, davies_bouldin_score
@@ -36,7 +36,7 @@ def metrics(X, y):
 
 
 def cluster_syllables(syllables, specgram, sp_freq,
-                      f_low, f_high, win, train = False, comp=False):
+                      f_low, f_high, win, train = False, model_name = '\.model_test', comp=False):
     """
     TODO
     :param syllables:
@@ -176,8 +176,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
     
     specs = np.array(images)
     specs = specs.reshape(specs.shape[0], 1, specs.shape[1], specs.shape[2])
-    model = torch.load('./model_test')
-
+    model = torch.load(model_name, map_location=torch.device('cpu'))
     dataset = TensorDataset(torch.tensor(specs, dtype = torch.float))
     batch_size = 32
     test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle = False)
@@ -185,7 +184,7 @@ def cluster_syllables(syllables, specgram, sp_freq,
     model.eval()
     with torch.no_grad():
         for data in test_loader:
-            outputs += model(data[0])
+            outputs += model(data[0], False)
 
     for i in range(len(outputs)):
         outputs[i] = outputs[i].detach().numpy().flatten()
@@ -195,7 +194,8 @@ def cluster_syllables(syllables, specgram, sp_freq,
     selector = VarianceThreshold(threshold=(1.2*np.mean(np.var(features, axis = 0))))
 
     features = selector.fit_transform(features)
-    features = StandardScaler().fit_transform(features)
+    scaler = StandardScaler()
+    features = scaler.fit_transform(features)
 
     test = min(100,features.shape[0], features.shape[1])
     n_comp = 0
@@ -214,8 +214,9 @@ def cluster_syllables(syllables, specgram, sp_freq,
     features = pca.fit_transform(features)
     features_d = features
     
-    return list(init_images), countour_points, \
-           init_points, [features_s, features_d], feature_names, freqs, segments, syllables_final
+    return images, list(init_images), countour_points, \
+           init_points, [features_s, features_d, outputs], feature_names, freqs, segments, syllables_final,\
+           selector, scaler, pca
 
 
 def cluster_help(clusterer, features, n_clusters):
@@ -243,5 +244,4 @@ def clustering(method, n_clusters, features):
     elif method == 'mbkmeans':
         clusterer = MiniBatchKMeans(n_clusters = n_clusters, random_state=9)
         y, scores = cluster_help(clusterer, features, n_clusters)
-
     return y, scores 

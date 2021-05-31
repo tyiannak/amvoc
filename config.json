@@ -6,7 +6,12 @@
     "MIN_VOC_DUR": 0.005,
     "F1": 30000,
     "F2": 110000,
-    "thres": 0.5,
-    "factor": 3.5
+    "thres":0.7,
+    "factor": 3.5,
+    "model": "./model_test_new_4",
+    "gamma_1": 1,
+    "gamma_2": 1,
+    "gamma_3": 0.001,
+    "num_ann_per_batch": 1
   }
 }
