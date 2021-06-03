@@ -220,6 +220,8 @@ if __name__ == "__main__":
     # get spectral sequences:
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
+    det_times_1=[]
+    det_times_2 = []
     with open("realtime_vocalizations.csv", "w") as fp:
         pass
     while 1:  # for each recorded window (until ctr+c) is pressed
@@ -241,6 +243,7 @@ if __name__ == "__main__":
                 (int((count_bufs + 1) * buff_size * fs) > len(wav_signal) and
                  len(mid_buffer)>0):
             start_time = time.time()
+            
             # get spectrogram:
             if cnt>0:
                 # calculate the spectrogram of the signal in the
@@ -275,6 +278,7 @@ if __name__ == "__main__":
                                                     )
             time_end=time.time()
             print("Total detection time: {}".format(time_end-time_start))
+            det_times_1.append(time_end-time_start)
             win = ST_STEP
             # the following lines save the detected
             # vocalizations in a .csv file and correct the split ones
@@ -406,7 +410,23 @@ if __name__ == "__main__":
             mid_buffer = []
             count_mid_bufs += 1
             end_time=time.time()
+            det_times_2.append(end_time-start_time)
+            # if (end_time-start_time>0.75):
+            #     print("Processing time > 750 ms!")
             print("Total processing time: {}".format(end_time-start_time))
         if int((count_bufs + 1) * buff_size * fs) > len(wav_signal):
             break
         count_bufs += 1
+    det_times_1 = [element * 1000 for element in det_times_1]
+    det_times_2 = [element * 1000 for element in det_times_2]
+    plt.figure()
+    plt.hist(det_times_1)
+    plt.xlabel("Time (ms)")
+    plt.title("Histogram of pure detection time")
+    plt.show()
+
+    plt.figure()
+    plt.hist(det_times_2)
+    plt.xlabel("Time (ms)")
+    plt.title("Histogram of total processing time")
+    plt.show()
