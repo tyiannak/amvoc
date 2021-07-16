@@ -647,19 +647,18 @@ if __name__ == "__main__":
          Input('dropdown_n_clusters', 'value'),
          Input('dropdown_feats_type', 'value'), 
          Input('intermediate_val_syllables', 'children'),
-         Input('update', 'children'),
-         Input('pairs', 'children')],
+         Input('update', 'children')],
         [State('clustering_info', 'children'),
          State('cluster_graph', 'clickData'),
          State('cluster_graph', 'figure'),
         ])
-    def update_cluster_graph(method, n_clusters, feats_type, n_clicks_3, update, pairs, 
+    def update_cluster_graph(method, n_clusters, feats_type, n_clicks_3, update,
                             clust_info, click_data, fig):
        
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         click_index = np.load('./dash/click_index.npy')
 
-        if ('intermediate_val_syllables.children' in changed_id) or ('pairs.children' in changed_id):
+        if 'intermediate_val_syllables.children' in changed_id:
             if click_data and (n_clicks_3[0]=='approve' or n_clicks_3[0]=='reject'):
                 index=click_data['points'][0]['pointIndex']
                 fig['data'][0]['marker']['size'][index]=10
@@ -671,11 +670,6 @@ if __name__ == "__main__":
                 np.save('./dash/click_index.npy', click_index)
                 return fig, clust_info
 
-            elif click_data and pairs:
-                index=click_data['points'][0]['pointIndex']
-                fig['data'][0]['marker']['size'][index]=10
-                fig['data'][0]['marker']['line']['color'][index]='Black'
-                return fig, clust_info
             elif click_data:
                 index=click_data['points'][0]['pointIndex']
                 fig['data'][0]['marker']['size'][index]=10
@@ -686,12 +680,6 @@ if __name__ == "__main__":
                 return fig, clust_info
         specs= np.load('./dash/specs.npy')
         pairwise_constraints = np.zeros((len(specs), len(specs)))
-        old_labels = [[] for i in range(n_clusters)]
-        new_labels = [[] for i in range(n_clusters)]
-        with open("./dash/old_labels.txt", "w") as fp:
-            json.dump(old_labels, fp)
-        with open("./dash/new_labels.txt", "w") as fp:
-            json.dump(new_labels, fp)
         np.save('./dash/pw.npy', pairwise_constraints)
         if feats_type == 'simple':
             feats_simple = np.load('./dash/feats_simple.npy')
@@ -699,7 +687,7 @@ if __name__ == "__main__":
             y, scores = ar.clustering(method, n_clusters, feats_simple)
             # labels = y
             np.save('./dash/labels.npy', y)
-            np.save('./dash/centers.npy', centers)
+            # np.save('./dash/centers.npy', centers)
             fig = go.Figure(data = go.Scatter(x = feats_2d_s[:, 0],
                                                 y = feats_2d_s[:, 1], name='',
                         mode='markers',
@@ -766,12 +754,13 @@ if __name__ == "__main__":
         if n_clicks_f and n_clicks_f!='no' and 'btn_f' in changed_id:
             clf=SVC()
             labels = np.load('./dash/labels.npy')
-            with open("./dash/new_labels.txt", "r") as fp:
-                new_labels = json.load(fp)
-            for i, entry in enumerate(new_labels):
-                for point in entry:
-                    labels[point] = i
             np.save('labels_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0]), labels)
+            syllables = np.load('./dash/syllables.npy', allow_pickle=True)
+            with open('offline_vocalizations.csv', 'w') as fp:
+                for iS, s in enumerate(syllables):
+                    fp.write(f'{s["st"]},'
+                            f'{s["et"]},'
+                            f'{labels[iS]}\n')   
             if feats_type=='simple':
                 feats_simple = np.load('./dash/feats_simple.npy')
                 clf.fit(feats_simple,labels)
@@ -786,54 +775,6 @@ if __name__ == "__main__":
             joblib.dump(joblib.load('./dash/std_scaler.bin'),'std_scaler_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
             joblib.dump(joblib.load('./dash/pca.bin'),'pca_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
             print("SAVED")
-
-
-    @app.callback(
-        Output('pairs', 'children'),
-        [Input('input1', 'value'),
-         Input('dropdown_n_clusters', 'value'),
-         Input('cluster_graph', 'clickData'),
-         Input('btn_4', 'n_clicks')]
-    )
-    def update_pairs(input, n_clusters, click_data, n_clicks_r):
-        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0] 
-        # global pairwise_constraints
-        labels = np.load('./dash/labels.npy')
-        if click_data and int(input)<n_clusters and 'btn_4' in changed_id:
-            current_point=click_data['points'][0]['pointIndex']
-            if int(input) != labels[current_point]:
-                indices=np.where(labels == labels[current_point])[0]
-                # old_labels = list(np.load('./dash/old_labels.npy'))
-                with open("./dash/old_labels.txt", "r") as fp:
-                    old_labels = json.load(fp)
-                old_labels[labels[current_point]].append(current_point)
-                indices=np.delete(indices,np.where(indices == old_labels[labels[current_point]])[0])
-                pairwise_constraints=np.load('./dash/pw.npy')
-                indices = np.where(labels!=int(input))
-                with open("./dash/new_labels.txt", "r") as fp:
-                    new_labels = json.load(fp)
-                # print(np.where(pairwise_constraints==1)[0])
-                pairwise_constraints[current_point,indices] = -0.5
-                pairwise_constraints[indices, current_point] = -0.5
-                
-                # pairwise_constraints[current_point, ]
-
-                indices = np.where(labels==int(input))[0]
-                indices = list(indices) + new_labels[int(input)]
-                pairwise_constraints[current_point,indices] = 1
-                pairwise_constraints[indices, current_point] = 1
-                new_labels[int(input)].append(current_point)
-                print(old_labels)
-                print(new_labels)
-                with open("./dash/old_labels.txt", "w") as fp:
-                    json.dump(old_labels, fp)
-                with open("./dash/new_labels.txt", "w") as fp:
-                    json.dump(new_labels, fp)
-                np.save('./dash/pw.npy', pairwise_constraints)
-                # print(np.where(pairwise_constraints==1)[0])
-                return True
-                
-        return False
 
     @app.callback(
         Output('retrain_model', 'children'),

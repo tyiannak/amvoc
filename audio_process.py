@@ -90,7 +90,7 @@ def prepare_features(spectrogram):
 
     # find frequency of maximum value for each time frame
     indices = np.argmax(spectrogram, axis=1)
-    # keep a frequency window of 60 kHz around the frequency corrsponding to max 
+    # keep a frequency window of 60 kHz around the frequency corresponding to max 
     ind_down = np.argmax(spectrogram, axis=1) - 30
     ind_up = np.argmax(spectrogram, axis=1) + 30
 

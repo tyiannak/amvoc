@@ -85,12 +85,10 @@ if __name__ == "__main__":
             plt.imshow(np.flip(spectrogram[x], axis=1).T)
             plt.subplot(1,2,2)
             plt.imshow(np.flip(spectrogram[y], axis=1).T)
-            # plt.ion()
             plt.pause(0.001)
             plt.draw()
             answer = input("Should the two vocalizations belong to the same cluster? (y/n). If you want to stop, type 'stop'. \n")
             plt.close()
-            # print(x, y)
 
         while (answer!='stop'):
             if answer=='y':
@@ -102,8 +100,6 @@ if __name__ == "__main__":
                 # pairwise_constraints[y, x] = -1
                 break
             else:
-                # print(x,y)
-                # print()
                 answer = input("Please provide a new answer (y/n) \n")
     np.save('pw_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0]), pairwise_constraints)
 

@@ -3,14 +3,14 @@
   {
     "ST_WIN": 0.002,
     "ST_STEP": 0.002,
-    "MIN_VOC_DUR": 0.005,
+    "MIN_VOC_DUR": 0.001,
     "F1": 30000,
     "F2": 110000,
-    "thres":0.7,
+    "thres":0.5,
     "factor": 3.5,
-    "model": "./model_test_new_4",
-    "gamma_1": 1,
-    "gamma_2": 1,
+    "model": "dash/model_dir_ur_comp_stim_1_agg_6_deep",
+    "gamma_1": 0.5,
+    "gamma_2": 0.2,
     "gamma_3": 0.001,
     "num_ann_per_batch": 1
   }

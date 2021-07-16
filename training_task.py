@@ -127,8 +127,6 @@ def data_prep(spectrogram):
             spectrogram[i] = np.pad(spectrogram[i]/np.amax(spectrogram[i]), ((int((time_limit-spectrogram[i].shape[0])/2), (time_limit-spectrogram[i].shape[0]) - int((time_limit-spectrogram[i].shape[0])/2)),(0,0)))
         else:
             spectrogram[i] = spectrogram[i]/np.amax(spectrogram[i])
-        # spectrogram[i] = np.array(spectrogram[i], dtype=float)
-    # print(type(spectrogram[0]))
 
     spectrogram=np.array(spectrogram, dtype=float)
 
@@ -140,12 +138,15 @@ def data_prep(spectrogram):
     return train_loader
 
 
-def try_func(x):
-    if x>1:
-        y=-1
-    else:
-        y = -x
-    return y
+def plot_func():
+    
+    locs, _ = plt.yticks()
+    locs = [0, 20, 40, 60, 80, 100, 120, 140, 160]
+    plt.yticks(locs, ('110', '100', '90' , '80', '70', '60', '50', '40', '30'))
+    locs_x = [0, 20, 40, 60, 80, 100, 120, 140]
+    plt.xticks(locs_x, ('0', '40', '80', '120', '160', '200', '240', '280'))
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Frequency (kHz)')
 
 def train_clust(spectrogram, train_loader, outputs_init, pairwise_constraints, n_clusters):
 
@@ -160,17 +161,17 @@ def train_clust(spectrogram, train_loader, outputs_init, pairwise_constraints, n
 
     # number of epochs to train the model
     n_epochs = 3
-    # print(spectrogram)
+
     model = model.float()
 
     clusterer = KMeans(n_clusters=n_clusters, random_state=9)
 
     y = clusterer.fit_predict(np.array(outputs_init,dtype=object))
     kmeans_centers = clusterer.cluster_centers_
+    kmeans_tensor = torch.tensor(kmeans_centers).to(device).float()
     epoch = 0
     train_loss=0.0
     end=False
-
     for epoch in range(n_epochs):
         if train_loss<-0.1 and epoch>1:
             # print(epoch)
@@ -194,7 +195,7 @@ def train_clust(spectrogram, train_loader, outputs_init, pairwise_constraints, n
             # clear the gradients of all optimized variables
             optimizer.zero_grad()
             # forward pass: compute predicted outputs by passing inputs to the model
-            outputs, rec, distr = model(feats[0].float(), decode = True, clustering = True, kmeans_centers = torch.tensor(kmeans_centers).to(device).float())
+            outputs, rec, distr = model(feats[0].float(), decode = True, clustering = True, kmeans_centers = torch.tensor(kmeans_tensor).to(device).float())
 
             outputs_ += outputs
             f_j = torch.sum(distr, dim=0)
@@ -212,7 +213,7 @@ def train_clust(spectrogram, train_loader, outputs_init, pairwise_constraints, n
                     y = np.random.randint(feats[0].shape[0])
                 
                     if (i*batch+x)<len(pairwise_constraints) and (i*batch+y)<len(pairwise_constraints):
-                        if x==y or pairwise_constraints[i*batch+x, i*batch+y]!=0  or pairwise_constraints[i*batch+y, i*batch+x]!=0:
+                        if x==y:
                             continue
                         else:
                             cnt += 1
@@ -221,8 +222,10 @@ def train_clust(spectrogram, train_loader, outputs_init, pairwise_constraints, n
                     if answer!='stop':
                         plt.figure(figsize=(5,5))
                         plt.subplot(1,2,1)
+                        plot_func()
                         plt.imshow(np.flip(spectrogram[i*batch+x], axis=1).T)
                         plt.subplot(1,2,2)
+                        plot_func()
                         plt.imshow(np.flip(spectrogram[i*batch+y], axis=1).T)
                         plt.pause(0.001)
                         plt.draw()
@@ -255,16 +258,12 @@ def train_clust(spectrogram, train_loader, outputs_init, pairwise_constraints, n
             # perform a single optimization step (parameter update)
             optimizer.step()
             
+            for i in range (kmeans_tensor.shape[0]):
+                der_loss_centers = -gamma_2*2*torch.sum((((1+(torch.cdist(outputs, kmeans_tensor[i,:].view(1,kmeans_tensor.shape[1]))).pow(2)).pow(-1)).view(batch)*(p[:,i]-distr[:,i]).view(batch))[:,None]*(outputs-kmeans_tensor[i,:]), dim=0)
+                kmeans_tensor[i,:] = kmeans_tensor[i,:] - 1000* der_loss_centers 
             train_loss += loss.item()
 
         plt.close()
-        for i in range(len(outputs_)):
-            outputs_[i] = outputs_[i].cpu().detach().numpy().flatten()
-
-        clusterer = KMeans(n_clusters=kmeans_centers.shape[0], random_state=9)
-
-        y = clusterer.fit_predict(np.array(outputs_,dtype=object))
-        kmeans_centers = clusterer.cluster_centers_
 
         train_loss = train_loss/len(train_loader)
         print('Epoch: {} \tTraining Loss: {:.6f}'.format(

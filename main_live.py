@@ -121,8 +121,6 @@ def parse_arguments():
 
 
 def feats_extr(image, encoder, selector, scaler, pca):
-    # plt.imshow(image.T)
-    # plt.show()
     
     time_limit=64
     if len(image)>time_limit:
@@ -133,14 +131,8 @@ def feats_extr(image, encoder, selector, scaler, pca):
         image = image/np.amax(image)
     
     spec = np.array(image)
-    # print(spec)
-    
     spec = spec.reshape(1, 1, spec.shape[0], spec.shape[1])
-    
-    # model = ConvAutoencoder()
-    # model.load_state_dict(torch.load('./model_new_test', map_location=torch.device('cpu')))
     dataset = TensorDataset(torch.tensor(spec, dtype = torch.float))
-    # batch_size = 32
     test_loader = torch.utils.data.DataLoader(dataset, shuffle = False)
     outputs = []
     encoder.eval()
@@ -151,30 +143,12 @@ def feats_extr(image, encoder, selector, scaler, pca):
     time_end = time.time()
     for i in range(len(outputs)):
         outputs[i] = outputs[i].detach().numpy().flatten()
-    
-    # print("Extraction")
-    # print(time_end-time_start)
     outputs=np.array(outputs)
     features = outputs
     
-    # print(features.shape)
-    # time_start = time.time()
     features = selector.transform(features)
-    # time_end = time.time()
-    # print("Selector")
-    # print(time_end-time_start)
-    # time_start=time.time()
     features = scaler.transform(features)
-    # time_end=time.time()
-    # print("Scaler")
-    # print(time_end-time_start)
-    # print(features_1.shape)
-    # time_start=time.time()
     features = pca.transform(features)
-    # time_end = time.time()
-    # print("PCA")
-    # print(time_end-time_start)
-    # print(features.shape)
     return features
 
 if __name__ == "__main__":
@@ -220,8 +194,6 @@ if __name__ == "__main__":
     # get spectral sequences:
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
-    det_times_1=[]
-    det_times_2 = []
     with open("realtime_vocalizations.csv", "w") as fp:
         pass
     while 1:  # for each recorded window (until ctr+c) is pressed
@@ -266,7 +238,6 @@ if __name__ == "__main__":
             means.append(spectral_energy.mean())
 
             time_sec = 100
-            time_start=time.time()
             seg_limits, thres_sm = ap.get_syllables(spectral_energy,
                                                     mean_values,
                                                     max_values,
@@ -276,9 +247,6 @@ if __name__ == "__main__":
                                                     min_duration=MIN_VOC_DUR,
                                                     threshold_buf = means,
                                                     )
-            time_end=time.time()
-            print("Total detection time: {}".format(time_end-time_start))
-            det_times_1.append(time_end-time_start)
             win = ST_STEP
             # the following lines save the detected
             # vocalizations in a .csv file and correct the split ones
@@ -315,17 +283,14 @@ if __name__ == "__main__":
                                         print("correction")
                                         
                                         if clf:
-                                            time_start = time.time()
                                             cur_image = spectrogram[start:end, f1:f2]
                                             feature_vector = feats_extr(cur_image, model, selector, scaler, pca)
                                             label = loaded_model.predict(feature_vector)[0]
                                             # label = np.argmin(np.linalg.norm(np.abs(feature_vector-centers), axis=1))
-                                            time_end = time.time()
                                             
                                             print([min(float(syl[0]),
                                                    float(real_start)),
                                                real_end, label])
-                                            print("classification time of current syllable: {}".format(time_end-time_start))
                                             fp.write(f'{min(float(syl[0]), float(real_start))},' f'{real_end},' f'{label} \n')
                                         else:
                                             print([min(float(syl[0]),
@@ -340,14 +305,11 @@ if __name__ == "__main__":
                                         
                                         if clf:
                                             fp.write(f'{syl[0]},' f'{syl[1]},' f'{syl[2]}\n')
-                                            time_start = time.time()
                                             cur_image = spectrogram[start:end, f1:f2]
                                             feature_vector = feats_extr(cur_image, model, selector, scaler, pca)
                                             label = loaded_model.predict(feature_vector)[0]
-                                            time_end=time.time()
                                             # label = np.argmin(np.linalg.norm(np.abs(feature_vector-centers), axis=1))
                                             print([real_start, real_end, label])
-                                            print("classification time of current syllable: {}".format(time_end-time_start))
                                             fp.write(f'{real_start},' f'{real_end},' f'{label}\n')
                                         else:
                                             fp.write(f'{syl[0]},' f'{syl[1]} \n')
@@ -360,15 +322,11 @@ if __name__ == "__main__":
                         continue
                     else:
                         if clf:
-                            time_start=time.time()
                             cur_image = spectrogram[start:end, f1:f2]
                             feature_vector = feats_extr(cur_image, model, selector, scaler, pca)
                             label = loaded_model.predict(feature_vector)[0]
-                            time_end=time.time()
                             # label = np.argmin(np.linalg.norm(np.abs(feature_vector-centers), axis=1))
                             print([real_start, real_end, label])
-                            # print(feature_vector.shape)
-                            print("classification time of current syllable: {}".format(time_end-time_start))
                             with open("realtime_vocalizations.csv", "a") as fp:
                                 fp.write(f'{real_start},'
                                         f'{real_end},' f'{label}\n')
@@ -382,15 +340,12 @@ if __name__ == "__main__":
                         # plt.show()
                 else:
                     if clf:
-                        time_start = time.time()
                         cur_image = spectrogram[start:end, f1:f2]
                         feature_vector = feats_extr(cur_image, model, selector, scaler, pca)
                         label = loaded_model.predict(feature_vector)[0]
-                        time_end=time.time()
                         # label = np.argmin(np.linalg.norm(np.abs(feature_vector-centers), axis=1))
                         print([count_mid_bufs * mid_buffer_size + s[0],
                            count_mid_bufs * mid_buffer_size + s[1], label])
-                        print("classification time of current syllable: {}".format(time_end-time_start))
                         with open("realtime_vocalizations.csv", "a") as fp:
                             fp.write(f'{count_mid_bufs * mid_buffer_size+ s[0]},'
                                     f'{count_mid_bufs * mid_buffer_size+ s[1]},' f'{label}\n')
@@ -409,24 +364,6 @@ if __name__ == "__main__":
             all_data = all_data[-len(mid_buffer):]
             mid_buffer = []
             count_mid_bufs += 1
-            end_time=time.time()
-            det_times_2.append(end_time-start_time)
-            # if (end_time-start_time>0.75):
-            #     print("Processing time > 750 ms!")
-            print("Total processing time: {}".format(end_time-start_time))
         if int((count_bufs + 1) * buff_size * fs) > len(wav_signal):
             break
         count_bufs += 1
-    det_times_1 = [element * 1000 for element in det_times_1]
-    det_times_2 = [element * 1000 for element in det_times_2]
-    plt.figure()
-    plt.hist(det_times_1)
-    plt.xlabel("Time (ms)")
-    plt.title("Histogram of pure detection time")
-    plt.show()
-
-    plt.figure()
-    plt.hist(det_times_2)
-    plt.xlabel("Time (ms)")
-    plt.title("Histogram of total processing time")
-    plt.show()
