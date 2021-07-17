@@ -278,8 +278,8 @@ if __name__ == "__main__":
                                 else:
                                     # change the entry only if the newly
                                     # detected vocalization has an overlap
-                                    # with the old one
-                                    if float(syl[1]) > float(real_start) or float(real_start)-float(syl[1])<0.01:
+                                    # with the old one with a 10 ms tolerance
+                                    if float(real_start)-float(syl[1])<0.01:
                                         print("correction")
                                         
                                         if clf:
