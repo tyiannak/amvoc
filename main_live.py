@@ -23,7 +23,6 @@ import pickle
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 import joblib
-import time
 
 global fs
 global all_data
@@ -93,9 +92,7 @@ class ConvAutoencoder(nn.Module):
 
         if self.training and clustering:
              x = self.flatten(x)
-            #  print((1+(torch.cdist(torch.reshape(x,(1,x.shape[0],x.shape[1])), torch.reshape(kmeans_centers,(1,kmeans_centers.shape[0],kmeans_centers.shape[1])))).pow(2)).pow(-1))
              dist =torch.cdist(torch.reshape(x,(1,x.shape[0],x.shape[1])), torch.reshape(kmeans_centers,(1,kmeans_centers.shape[0],kmeans_centers.shape[1])))
-            #  dist = torch.reshape(dist,(dist.shape[1], dist.shape[2]))
              q = torch.div((1+dist.pow(2)).pow(-1),torch.sum((1+dist.pow(2)).pow(-1),dim=1))
              if decode:
               return x, y, q
@@ -136,11 +133,9 @@ def feats_extr(image, encoder, selector, scaler, pca):
     test_loader = torch.utils.data.DataLoader(dataset, shuffle = False)
     outputs = []
     encoder.eval()
-    time_start=time.time()
     with torch.no_grad():
         for data in test_loader:
             outputs += encoder(data[0], False)
-    time_end = time.time()
     for i in range(len(outputs)):
         outputs[i] = outputs[i].detach().numpy().flatten()
     outputs=np.array(outputs)
@@ -150,6 +145,20 @@ def feats_extr(image, encoder, selector, scaler, pca):
     features = scaler.transform(features)
     features = pca.transform(features)
     return features
+
+def print_and_write(to_print, start_time, end_time, i_s, len_seg_limits):
+    to_print[0] = start_time
+    to_print[1] = end_time
+    print(to_print)
+    if i_s!=len_seg_limits-1:
+        with open("realtime_vocalizations.csv", "a") as fp:
+            writer=csv.writer(fp)
+            writer.writerow(to_print)
+
+def write_last(to_print_last):
+    with open("realtime_vocalizations.csv", "a") as fp:
+        writer=csv.writer(fp)
+        writer.writerow(to_print_last)
 
 if __name__ == "__main__":
     args = parse_arguments()
@@ -171,7 +180,6 @@ if __name__ == "__main__":
         pca = joblib.load('pca_' + clf[4:-4]+'.bin')
     all_data = []
     mid_buffer = []
-    time_start = time.time()
     outstr = datetime.datetime.now().strftime("%Y_%m_%d_%I:%M%p")
     
     if wav_signal is None:
@@ -189,7 +197,7 @@ if __name__ == "__main__":
     means = []
     count_bufs = 0
     count_mid_bufs = 0
-    cnt = 0
+    check = False # is true when the first USV is detected
 
     # get spectral sequences:
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
@@ -214,10 +222,9 @@ if __name__ == "__main__":
         if len(mid_buffer) >= int(mid_buffer_size * fs) or \
                 (int((count_bufs + 1) * buff_size * fs) > len(wav_signal) and
                  len(mid_buffer)>0):
-            start_time = time.time()
             
             # get spectrogram:
-            if cnt>0:
+            if count_mid_bufs>0:
                 # calculate the spectrogram of the signal in the
                 # mid_buffer and 100 msec before
                 spectrogram, sp_time, sp_freq, _  = \
@@ -250,120 +257,77 @@ if __name__ == "__main__":
             win = ST_STEP
             # the following lines save the detected
             # vocalizations in a .csv file and correct the split ones
-            for s in seg_limits:
+            for i_s, s in enumerate(seg_limits):
                 start = int(s[0]/win)
                 end = int(s[1]/win)
-                if cnt>0:
-                    real_start = count_mid_bufs * mid_buffer_size-0.1 + s[0]
-                    real_end = count_mid_bufs * mid_buffer_size-0.1 + s[1]
-                    if s[0]<=0.1 and s[1] >=0.1:
-                        # last vocalization should be changed
-                        syllables_csv1 = []
-                        # load the written vocalizations up to now
-                        with open("realtime_vocalizations.csv", "r")\
-                                as realtime:
-                            reader = csv.reader(realtime)
-                            for row in reader:
-                                syllables_csv1.append(row)
-                        with open("realtime_vocalizations.csv", "w") as fp:
-                            for iS, syl in enumerate(syllables_csv1):
-                                # rewrite the correct vocalizations
-                                if iS<len(syllables_csv1)-1:
-                                    if len(syl)==3:
-                                        fp.write(f'{syl[0]},'
-                                                f'{syl[1]},' f'{syl[2]}\n')
-                                    else:
-                                        fp.write(f'{syl[0]},'
-                                                f'{syl[1]} \n')
-                                else:
-                                    # change the entry only if the newly
-                                    # detected vocalization has an overlap
-                                    # with the old one with a 10 ms tolerance
-                                    if float(real_start)-float(syl[1])<0.01:
-                                        print("correction")
-                                        
-                                        if clf:
-                                            cur_image = spectrogram[start:end, f1:f2]
-                                            feature_vector = feats_extr(cur_image, model, selector, scaler, pca)
-                                            label = loaded_model.predict(feature_vector)[0]
-                                            # label = np.argmin(np.linalg.norm(np.abs(feature_vector-centers), axis=1))
-                                            
-                                            print([min(float(syl[0]),
-                                                   float(real_start)),
-                                               real_end, label])
-                                            fp.write(f'{min(float(syl[0]), float(real_start))},' f'{real_end},' f'{label} \n')
-                                        else:
-                                            print([min(float(syl[0]),
-                                                   float(real_start)),
-                                               real_end])
-                                        
-                                            fp.write(f'{min(float(syl[0]), float(real_start))},' f'{real_end} \n')
-                                        # plt.imshow(cur_image.T)
-                                        # plt.show()
-                                    # otherwise, keep both 
-                                    else:
-                                        
-                                        if clf:
-                                            fp.write(f'{syl[0]},' f'{syl[1]},' f'{syl[2]}\n')
-                                            cur_image = spectrogram[start:end, f1:f2]
-                                            feature_vector = feats_extr(cur_image, model, selector, scaler, pca)
-                                            label = loaded_model.predict(feature_vector)[0]
-                                            # label = np.argmin(np.linalg.norm(np.abs(feature_vector-centers), axis=1))
-                                            print([real_start, real_end, label])
-                                            fp.write(f'{real_start},' f'{real_end},' f'{label}\n')
-                                        else:
-                                            fp.write(f'{syl[0]},' f'{syl[1]} \n')
-                                            print([real_start, real_end])
-                                            fp.write(f'{real_start},' f'{real_end} \n')
-                                        # plt.imshow(cur_image.T)
-                                        # plt.show()
+                if clf:
+                    # label calculation
+                    cur_image = spectrogram[start:end, f1:f2]
+                    feature_vector = feats_extr(cur_image, model, selector, scaler, pca)
+                    label = loaded_model.predict(feature_vector)[0]
+                    to_print = [0,0,label]
+                else:
+                    to_print = [0,0]
+                # plt.imshow(cur_image.T)
+                # plt.show()
+                if check:
+                    # actual times of occurrence
+                    real_start = round(count_mid_bufs * mid_buffer_size-0.1 + s[0],3)
+                    real_end = round(count_mid_bufs * mid_buffer_size-0.1 + s[1],3)
+                    
+                    if s[0]<0.1 and s[1] >=0.1:
+                        # vocalization interrupted, correct only if the newly
+                        # detected vocalization has an overlap
+                        # with the old one with a 10 ms tolerance
+                        if real_start - last[1]<0.01:
+                            print("correction")
+                            print_and_write(to_print, min(last[0], real_start), real_end, i_s, len(seg_limits))
+
+                        # otherwise, keep both 
+                        else:
+                            write_last(to_print_last)
+                            print_and_write(to_print, real_start, real_end, i_s, len(seg_limits))
+
+                        last[2]=1 # mark last vocalization of previous buffer as written
                     elif s[0]<0.1 and s[1]<0.1:
                         # no need to add or change an entry
                         continue
-                    else:
-                        if clf:
-                            cur_image = spectrogram[start:end, f1:f2]
-                            feature_vector = feats_extr(cur_image, model, selector, scaler, pca)
-                            label = loaded_model.predict(feature_vector)[0]
-                            # label = np.argmin(np.linalg.norm(np.abs(feature_vector-centers), axis=1))
-                            print([real_start, real_end, label])
-                            with open("realtime_vocalizations.csv", "a") as fp:
-                                fp.write(f'{real_start},'
-                                        f'{real_end},' f'{label}\n')
-                        else:
-                            print([real_start, real_end])
-                            
-                            with open("realtime_vocalizations.csv", "a") as fp:
-                                fp.write(f'{real_start},'
-                                        f'{real_end} \n')
-                        # plt.imshow(cur_image.T)
-                        # plt.show()
+                    else:            
+                        if last[1] <real_start and last[2]==0:
+                            write_last(to_print_last)
+                            last[2]=1
+                        print_and_write(to_print, real_start, real_end, i_s, len(seg_limits))
+                                
                 else:
-                    if clf:
-                        cur_image = spectrogram[start:end, f1:f2]
-                        feature_vector = feats_extr(cur_image, model, selector, scaler, pca)
-                        label = loaded_model.predict(feature_vector)[0]
-                        # label = np.argmin(np.linalg.norm(np.abs(feature_vector-centers), axis=1))
-                        print([count_mid_bufs * mid_buffer_size + s[0],
-                           count_mid_bufs * mid_buffer_size + s[1], label])
-                        with open("realtime_vocalizations.csv", "a") as fp:
-                            fp.write(f'{count_mid_bufs * mid_buffer_size+ s[0]},'
-                                    f'{count_mid_bufs * mid_buffer_size+ s[1]},' f'{label}\n')
+                    if count_mid_bufs > 0:
+                        real_start = round(count_mid_bufs * mid_buffer_size -0.1 + s[0],3)
+                        real_end = round(count_mid_bufs * mid_buffer_size -0.1 + s[1],3)
                     else:
-                        print([count_mid_bufs * mid_buffer_size + s[0],
-                           count_mid_bufs * mid_buffer_size + s[1]])
-                   
-                        with open("realtime_vocalizations.csv", "a") as fp:
-                                fp.write(f'{count_mid_bufs * mid_buffer_size+ s[0]},'
-                                        f'{count_mid_bufs * mid_buffer_size+ s[1]} \n')
-                    # plt.imshow(cur_image.T)
-                    # plt.show()
+                        real_start = round(count_mid_bufs * mid_buffer_size + s[0],3)
+                        real_end = round(count_mid_bufs * mid_buffer_size + s[1],3)
+                    print_and_write(to_print, real_start, real_end, i_s, len(seg_limits))
                 
-            cnt+=1
+                if i_s==len(seg_limits)-1:
+                    # keep last USV in case it needs correction 
+                    # last[2] is a marker of whether the last USV 
+                    # from previous buffer is written in the file
+                    if clf:
+                        last=[real_start, real_end, 0, label] 
+                        
+                        to_print_last = [last[0], last[1], last[3]]
+                    else:
+                        last=[real_start, real_end, 0,-1]
+                        to_print_last=[last[0], last[1]]
+
+            if seg_limits!=[]:
+                #first USVs detected
+                check=True
             
             all_data = all_data[-len(mid_buffer):]
             mid_buffer = []
             count_mid_bufs += 1
         if int((count_bufs + 1) * buff_size * fs) > len(wav_signal):
+            if last[2]==0: # if last USV from previous buffer isn't written in the file
+                write_last(to_print_last)
             break
         count_bufs += 1
