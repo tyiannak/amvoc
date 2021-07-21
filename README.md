@@ -63,7 +63,7 @@ python3 main_live.py -i data/vocalizations_evaluation/1/rec_1.wav
 
 ```
 
-In order to compare the detected vocalizations with the actual ones, 
+In order to compare the e.g. online detected vocalizations with the actual ones, 
 the user should run the syllables_comp.py:
 
 ```

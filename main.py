@@ -146,6 +146,8 @@ def get_layout(spec=False):
     print("Time needed for vocalizations detection: {} s".format(round(time_end-time_start, 1)))
     continue_ = args.continue_
     with open('offline_vocalizations.csv', 'w') as fp:
+            writer=csv.writer(fp)
+            writer.writerow(["Start time", "End time"])
             for iS, s in enumerate(seg_limits):
                 fp.write(f'{round(s[0],3)},'
                         f'{round(s[1],3)}\n')   
@@ -735,6 +737,8 @@ if __name__ == "__main__":
             np.save('labels_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0]), labels)
             syllables = np.load('./dash/syllables.npy', allow_pickle=True)
             with open('offline_vocalizations.csv', 'w') as fp:
+                writer=csv.writer(fp)
+                writer.writerow(["Start time", "End time", "Cluster"])
                 for iS, s in enumerate(syllables):
                     fp.write(f'{round(s["st"],3)},'
                             f'{round(s["et"],3)},'
@@ -744,6 +748,8 @@ if __name__ == "__main__":
             else:
                 feats = np.load('./dash/feats_deep.npy')
             clf.fit(feats,labels)
+            model = torch.load("./dash/model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), map_location=torch.device('cpu'))
+            torch.save(model, "model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type))
             # centers = np.load('./dash/centers.npy')
             # np.save('centers_{}_{}_{}_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), centers)
             pickle.dump(clf, open('clf_{}_{}_{}_{}.sav'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), 'wb'))

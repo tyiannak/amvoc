@@ -47,6 +47,9 @@ if __name__ == "__main__":
         reader = csv.reader(file2)
         for row in reader:
             syllables_csv2.append(row)
+    
+    syllables_csv1 = syllables_csv1[1:]
+    syllables_csv2 = syllables_csv2[1:]
 
     print('Syllables of 1st csv file: {}'.format(len(syllables_csv1)))
     print('Syllables of 2nd csv file: {}'.format(len(syllables_csv2)))

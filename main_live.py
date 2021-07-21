@@ -203,7 +203,11 @@ if __name__ == "__main__":
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
     with open("realtime_vocalizations.csv", "w") as fp:
-        pass
+        writer=csv.writer(fp)
+        if clf:
+            writer.writerow(["Start time", "End time", "Class"])
+        else:
+            writer.writerow(["Start time", "End time"])
     while 1:  # for each recorded window (until ctr+c) is pressed
         if wav_signal is None:
             # get current block and convert to list of short ints,
