@@ -15,7 +15,7 @@ It takes the WAV filename in which the recording to analyze is stored.
 Also, the user has to declare whether or not they want to proceed with the annotation and clustering of each vocalization or just get the vocalizations detected for the given recording (option -c y if they want to continue or -c n in the opposite case). In case they want to proceed with the clustering, they can also define whether spectrogram of the whole input signal 
 should be displayed in the app (option -s). If the spectrogram is to be displayed
 (not recommended for large wavfiles),
-the user should choose one of the following options: -s 1 or -s True or -s true.
+the user should choose one of the following options: -s 1 or -s True or -s true. Otherwise, they can skip this parameter.
 
 ```
 python3 main.py -i data/B148_test_small.wav -c y -s 1
@@ -71,3 +71,20 @@ python3 syllables_comp.py -i data/vocalizations_evaluation/1/rec_1.wav -csv1 rea
 ```
 
 The evaluation metrics are displayed on terminal. 
+
+Semisupervised option:
+The user can intervene in the re-training of the autoencoder used for feature extraction (Method 1) from USVs in order to explore new clustering alternatives, by imposing pairwise constraints between USVs. This is achieved by clicking on the "Retrain model" button on the GUI. Pairs of detected USVs will subsequently pop up and the user can declare whether or not they should belong to the same cluster by typing "y" or "n" respectively, in the terminal.
+
+After the retraining procedure is finished, the user can inspect the new clustering by clicking on "Update" button. 
+
+The option "Save clustering" gives the opportunity to save the cluster label of each USV, the new autoencoder model as "model_fileName_clusteringMethod_numClusters_featureType" and also train a classifier, saved as "clf_fileName_clusteringMethod_numClusters_featureType", using USV representations and their corresponding labels as ground-truth data. 
+
+![execution example](screenshot_2.png "execution example 2")
+
+This classifier, along with the model, can be used for the real-time classification of detected USVs in the main_live.py. This can be done by first changing the "model" parameter in the config.json with the name of the new model and run main_live.py as:
+
+```
+python3 main_live.py -i data/B148_test_small.wav -c clf_B148_test_small_agg_6_deep
+
+```
+The name of the classifier in the line above is an example. 
