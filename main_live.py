@@ -54,7 +54,7 @@ class ConvAutoencoder(nn.Module):
         self.conv1 = nn.Conv2d(1, 64, 3, padding =1)  
         # conv layer (depth from 64 --> 32), 3x3 kernels
         self.conv2 = nn.Conv2d(64, 32, 3, padding=1)
-        # conv layer (depth from 32 --> 16), 3x3 kernels
+        # conv layer (depth from 32 --> 8), 3x3 kernels
         self.conv3 = nn.Conv2d(32, 2, 3, padding=1)
 
         self.pool = nn.MaxPool2d((2,2), 2)

@@ -61,7 +61,7 @@ class ConvAutoencoder(nn.Module):
         self.conv1 = nn.Conv2d(1, 64, 3, padding =1)  
         # conv layer (depth from 64 --> 32), 3x3 kernels
         self.conv2 = nn.Conv2d(64, 32, 3, padding=1)
-        # conv layer (depth from 32 --> 16), 3x3 kernels
+        # conv layer (depth from 32 --> 8), 3x3 kernels
         self.conv3 = nn.Conv2d(32, 8, 3, padding=1)
 
         self.pool = nn.MaxPool2d((2,2), 2)
@@ -77,7 +77,6 @@ class ConvAutoencoder(nn.Module):
         ## encode ##
         # add hidden layers with relu activation function
         # and maxpooling after
-        # print(x.shape)
         x = F.relu(self.conv1(x))
         x = self.pool(x)
         # add second hidden layer
@@ -101,13 +100,7 @@ class ConvAutoencoder(nn.Module):
         if self.training and clustering:
             
             x = self.flatten(x)
-        #  print((1+(torch.cdist(torch.reshape(x,(1,x.shape[0],x.shape[1])), torch.reshape(kmeans_centers,(1,kmeans_centers.shape[0],kmeans_centers.shape[1])))).pow(2)).pow(-1))
-        #  print(x.shape)
-        #  print(kmeans_centers.shape)
             dist =torch.cdist(x, kmeans_centers)
-        #  dist = torch.reshape(dist,(dist.shape[1], dist.shape[2]))
-        #  print((1+dist.pow(2)).pow(-1).shape)
-        #  print(torch.sum((1+dist.pow(2)).pow(-1),dim=1).view(torch.sum((1+dist.pow(2)).pow(-1),dim=1).shape[0],1).shape)
             q = ((1+dist.pow(2)).pow(-1))/torch.sum((1+dist.pow(2)).pow(-1),dim=1).view(torch.sum((1+dist.pow(2)).pow(-1),dim=1).shape[0],1)
             if decode:
                 return x, y, q
@@ -154,8 +147,8 @@ def get_layout(spec=False):
     continue_ = args.continue_
     with open('offline_vocalizations.csv', 'w') as fp:
             for iS, s in enumerate(seg_limits):
-                fp.write(f'{s[0]},'
-                        f'{s[1]}\n')   
+                fp.write(f'{round(s[0],3)},'
+                        f'{round(s[1],3)}\n')   
     if continue_=="n":
         exit()       
 
@@ -679,50 +672,35 @@ if __name__ == "__main__":
                 np.save('./dash/click_index.npy', click_index)
                 return fig, clust_info
         specs= np.load('./dash/specs.npy')
-        pairwise_constraints = np.zeros((len(specs), len(specs)))
-        np.save('./dash/pw.npy', pairwise_constraints)
+        # pairwise_constraints = np.zeros((len(specs), len(specs)))
+        # np.save('./dash/pw.npy', pairwise_constraints)
         if feats_type == 'simple':
-            feats_simple = np.load('./dash/feats_simple.npy')
-            feats_2d_s = np.load('./dash/feats_2d_s.npy')
-            y, scores = ar.clustering(method, n_clusters, feats_simple)
+            feats = np.load('./dash/feats_simple.npy')
+            feats_2d = np.load('./dash/feats_2d_s.npy')
+        elif feats_type== 'deep':
+            feats = np.load('./dash/feats_deep.npy')
+            feats_2d = np.load('./dash/feats_2d_d.npy')
+        y, scores = ar.clustering(method, n_clusters, feats)
             # labels = y
-            np.save('./dash/labels.npy', y)
-            # np.save('./dash/centers.npy', centers)
-            fig = go.Figure(data = go.Scatter(x = feats_2d_s[:, 0],
-                                                y = feats_2d_s[:, 1], name='',
-                        mode='markers',
-                        marker=go.scatter.Marker(color=y,
-                                                    size=[7.5
-                                                        for i in range(len(y))],
-                                                    line=dict(width=2,
-                                    color=['White' for i in range(len(y))]),
-                                                    opacity=1.),
-                                                text =
-                                                ['cluster {}'.format(y[i])
-                                                for i in range (len(y))],
-                        showlegend=False),
-                            layout = go.Layout(title = 'Clustered syllables',
-                                                xaxis = dict(title = 'x'),
-                                                yaxis = dict(title = 'y'),
-                        margin=dict(l=0, r=5), ))
-        elif feats_type == 'deep':
-            feats_deep = np.load('./dash/feats_deep.npy')
-            feats_2d_d = np.load('./dash/feats_2d_d.npy')
-            y, scores = ar.clustering(method, n_clusters, feats_deep)
-            # labels = y
-            np.save('./dash/labels.npy', y)
-            # np.save('./dash/centers.npy', centers)
-            fig = go.Figure(data = go.Scatter(x = feats_2d_d[:, 0],
-                                                y = feats_2d_d[:, 1], name='',
-                        mode='markers',
-                        marker=go.scatter.Marker(color=y,
-                                                    size=[7.5
-                                                        for i in range(len(y))],
-                                                    line=dict(width=2,
-                                    color=['White' for i in range(len(y))]),
-                                                    opacity=1.),text = ['cluster {}'.format(y[i]) for i in range (len(y))],
-                        showlegend=False),layout = go.Layout(title = 'Clustered syllables', xaxis = dict(title = 'x'), yaxis = dict(title = 'y'),
-                        margin=dict(l=0, r=5), ))
+        np.save('./dash/labels.npy', y)
+        # np.save('./dash/centers.npy', centers)
+        fig = go.Figure(data = go.Scatter(x = feats_2d[:, 0],
+                                            y = feats_2d[:, 1], name='',
+                    mode='markers',
+                    marker=go.scatter.Marker(color=y,
+                                                size=[7.5
+                                                    for i in range(len(y))],
+                                                line=dict(width=2,
+                                color=['White' for i in range(len(y))]),
+                                                opacity=1.),
+                                            text =
+                                            ['cluster {}'.format(y[i])
+                                            for i in range (len(y))],
+                    showlegend=False),
+                        layout = go.Layout(title = 'Clustered syllables',
+                                            xaxis = dict(title = 'x'),
+                                            yaxis = dict(title = 'y'),
+                    margin=dict(l=0, r=5), ))
         data = {
             "method": method,
             "number_of_clusters": n_clusters,
@@ -758,16 +736,14 @@ if __name__ == "__main__":
             syllables = np.load('./dash/syllables.npy', allow_pickle=True)
             with open('offline_vocalizations.csv', 'w') as fp:
                 for iS, s in enumerate(syllables):
-                    fp.write(f'{s["st"]},'
-                            f'{s["et"]},'
+                    fp.write(f'{round(s["st"],3)},'
+                            f'{round(s["et"],3)},'
                             f'{labels[iS]}\n')   
             if feats_type=='simple':
-                feats_simple = np.load('./dash/feats_simple.npy')
-                clf.fit(feats_simple,labels)
+                feats = np.load('./dash/feats_simple.npy')
             else:
-                feats_deep = np.load('./dash/feats_deep.npy')
-                clf.fit(feats_deep,labels)
-                # print(clf.score(feats_deep, labels))
+                feats = np.load('./dash/feats_deep.npy')
+            clf.fit(feats,labels)
             # centers = np.load('./dash/centers.npy')
             # np.save('centers_{}_{}_{}_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), centers)
             pickle.dump(clf, open('clf_{}_{}_{}_{}.sav'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), 'wb'))
@@ -790,10 +766,10 @@ if __name__ == "__main__":
             specs=np.load('./dash/specs.npy')
             train_loader = tr_t.data_prep(specs)
             labels = np.load('./dash/labels.npy')
-            pairwise_constraints=np.load('./dash/pw.npy')
+            # pairwise_constraints=np.load('./dash/pw.npy')
             spectrogram = np.load('./dash/images.npy', allow_pickle=True)
             outputs = np.load('./dash/outputs_deep.npy')
-            model = tr_t.train_clust(spectrogram, train_loader, outputs, pairwise_constraints, n_clusters)
+            model = tr_t.train_clust(spectrogram, train_loader, outputs, n_clusters)
             path = "./dash/model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type)
             torch.save(model, path)
 

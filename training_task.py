@@ -148,7 +148,7 @@ def plot_func():
     plt.xlabel('Time (ms)')
     plt.ylabel('Frequency (kHz)')
 
-def train_clust(spectrogram, train_loader, outputs_init, pairwise_constraints, n_clusters):
+def train_clust(spectrogram, train_loader, outputs_init, n_clusters):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
@@ -172,6 +172,8 @@ def train_clust(spectrogram, train_loader, outputs_init, pairwise_constraints, n
     epoch = 0
     train_loss=0.0
     end=False
+
+    pairwise_constraints = np.zeros((len(spectrogram), len(spectrogram)))
     for epoch in range(n_epochs):
         if train_loss<-0.1 and epoch>1:
             # print(epoch)
