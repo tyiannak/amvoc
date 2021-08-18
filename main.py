@@ -145,7 +145,9 @@ def get_layout(spec=False):
     time_end = time.time()
     print("Time needed for vocalizations detection: {} s".format(round(time_end-time_start, 1)))
     continue_ = args.continue_
-    with open('offline_vocalizations.csv', 'w') as fp:
+    global voc_name
+    voc_name = 'offline_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
+    with open(voc_name, 'w') as fp:
             writer=csv.writer(fp)
             writer.writerow(["Start time", "End time"])
             for iS, s in enumerate(seg_limits):
@@ -297,8 +299,8 @@ def get_layout(spec=False):
                     dcc.Dropdown(
                         id='dropdown_feats_type',
                         options=[
-                            {'label': 'Method 1', 'value': 'deep'},
-                            {'label': 'Method 2', 'value': 'simple'},
+                            {'label': 'Deep', 'value': 'deep'},
+                            {'label': 'Simple', 'value': 'simple'},
                         ], value='deep'
                     ),
                     width=2,
@@ -327,7 +329,6 @@ def get_layout(spec=False):
             dbc.Row([dbc.Col(html.Div(children = "Global cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Specific cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Point annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
-                    dbc.Col(html.Div(children= "Alternative cluster"), width=3, style={'marginBottom': 20, 'marginTop': 20})
             ]),
             dbc.Row([
             dbc.Col(
@@ -375,12 +376,6 @@ def get_layout(spec=False):
                 ),
             dbc.Col(     
                 html.Button('Submit', id='btn_1', n_clicks=0),  
-                    width=1,
-                    style={'display': 'block'}
-            ),
-            dbc.Col(dcc.Input(id="input1", type="number", value="0", maxLength=1, style={'width':'95%'}, min=0, max=9),width = 1),
-            dbc.Col(     
-                html.Button('Submit', id='btn_4', n_clicks=0),  
                     width=1,
                     style={'display': 'block'}
             ),
@@ -441,8 +436,8 @@ def get_layout(spec=False):
                     dcc.Dropdown(
                         id='dropdown_feats_type',
                         options=[
-                            {'label': 'Method 1', 'value': 'deep'},
-                            {'label': 'Method 2', 'value': 'simple'},
+                            {'label': 'Deep', 'value': 'deep'},
+                            {'label': 'Simple', 'value': 'simple'},
                         ], value='deep'
                     ),
                     width=2,
@@ -471,7 +466,6 @@ def get_layout(spec=False):
             dbc.Row([dbc.Col(html.Div(children = "Global cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Specific cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
                     dbc.Col(html.Div(children = "Point annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
-                    dbc.Col(html.Div(children= "Alternative cluster"), width=3, style={'marginBottom': 20, 'marginTop': 20})
             ]),
             dbc.Row([
             dbc.Col(
@@ -519,12 +513,6 @@ def get_layout(spec=False):
                 ),
             dbc.Col(     
                 html.Button('Submit', id='btn_1', n_clicks=0),  
-                    width=1,
-                    style={'display': 'block'}
-            ),
-            dbc.Col(dcc.Input(id="input1", type="number", value="0", maxLength=1, style={'width':'95%'}, min=0, max=9),width = 1),
-            dbc.Col(     
-                html.Button('Submit', id='btn_4', n_clicks=0),  
                     width=1,
                     style={'display': 'block'}
             ),
@@ -627,6 +615,7 @@ if __name__ == "__main__":
                     if s["st"] < t and s["et"] > t:
                         t1 = s["st"]
                         t2 = s["et"]
+                        labels = np.load('./dash/labels.npy')
                         syllable_label = 'class {}'.format(labels[i_s])
                         found = True
                         break
@@ -736,7 +725,7 @@ if __name__ == "__main__":
             labels = np.load('./dash/labels.npy')
             np.save('labels_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0]), labels)
             syllables = np.load('./dash/syllables.npy', allow_pickle=True)
-            with open('offline_vocalizations.csv', 'w') as fp:
+            with open(voc_name, 'w') as fp:
                 writer=csv.writer(fp)
                 writer.writerow(["Start time", "End time", "Cluster"])
                 for iS, s in enumerate(syllables):
@@ -771,7 +760,6 @@ if __name__ == "__main__":
         if n_clicks_r and n_clicks_r!='no' and 'btn_r' in changed_id:
             specs=np.load('./dash/specs.npy')
             train_loader = tr_t.data_prep(specs)
-            labels = np.load('./dash/labels.npy')
             # pairwise_constraints=np.load('./dash/pw.npy')
             spectrogram = np.load('./dash/images.npy', allow_pickle=True)
             outputs = np.load('./dash/outputs_deep.npy')
@@ -897,7 +885,7 @@ if __name__ == "__main__":
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if click_data and (val=='approve' or val=='reject') and 'btn_1' in changed_id:
             labels = np.load('./dash/labels.npy')
-            syllables = np.load('./dash/syllables.npy')
+            syllables = np.load('./dash/syllables.npy', allow_pickle=True)
             point_info = {'index': click_data['points'][0]['pointIndex'] , 
                           'class': int(labels[click_data['points'][0]['pointIndex']]), 
                           'start time': syllables[click_data['points'][0]['pointIndex']]['st'], 'end time': syllables[click_data['points'][0]['pointIndex']]['et'],
@@ -911,7 +899,7 @@ if __name__ == "__main__":
                 ready = False
                 for i, point_ann in enumerate(data['point_annotations']):    
                     shared_items = {k: point_info[k] for k in point_info if k in point_ann and point_info[k] == point_ann[k]}
-                    if len(shared_items)==len(point_info)-1:
+                    if len(shared_items)==len(point_info)-1 or len(shared_items)==len(point_info):
                         data['point_annotations'][i]['annotation'] = val
                         ready = True
                         break
@@ -939,6 +927,7 @@ if __name__ == "__main__":
             
             with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
                 ready = False
+                labels = np.load('./dash/labels.npy')
                 info['class'] = int(labels[click_data['points'][0]['pointIndex']])
                 for i, cluster_ann in enumerate(data['cluster_annotations']):    
                     shared_items = {k: info[k] for k in info if k in cluster_ann and info[k] == cluster_ann[k]}

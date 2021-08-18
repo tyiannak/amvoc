@@ -151,12 +151,12 @@ def print_and_write(to_print, start_time, end_time, i_s, len_seg_limits):
     to_print[1] = end_time
     print(to_print)
     if i_s!=len_seg_limits-1:
-        with open("realtime_vocalizations.csv", "a") as fp:
+        with open(voc_file, "a") as fp:
             writer=csv.writer(fp)
             writer.writerow(to_print)
 
 def write_last(to_print_last):
-    with open("realtime_vocalizations.csv", "a") as fp:
+    with open(voc_file, "a") as fp:
         writer=csv.writer(fp)
         writer.writerow(to_print_last)
 
@@ -164,7 +164,8 @@ if __name__ == "__main__":
     args = parse_arguments()
     input_file = args.input_file
     clf = args.classifier
-    global fs
+    global fs, voc_file
+    voc_file = 'realtime_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
     if input_file:
         fs, wav_signal = io.read_audio_file(input_file)
     else:
@@ -202,7 +203,7 @@ if __name__ == "__main__":
     # get spectral sequences:
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
-    with open("realtime_vocalizations.csv", "w") as fp:
+    with open(voc_file, "w") as fp:
         writer=csv.writer(fp)
         if clf:
             writer.writerow(["Start time", "End time", "Class"])
