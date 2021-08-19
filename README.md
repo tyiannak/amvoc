@@ -1,8 +1,10 @@
-# amvoc: Python Tool for Analysis of Mouse Vocal Communication
+# amvoc: A Python Tool for Analysis of Mouse Vocal Communication
 
 ## Intro
 amvoc is a tool used to analyze mouse vocal communication through analyzing
  audio recordings from mouse communication signals.
+ 
+It has been developed by the [Multimedia Analysis Group of the Computational Intelligence Lab (MagCIL) of the the Institute of Informatics and Telecommunications , of the National Center for Scientific Research "Demokritos"](https://labs-repos.iit.demokritos.gr/MagCIL/index.html), with the cooperation of the [Laboratory of Neurogenetics of Language, The Rockefeller University, New York](https://www.jarvislab.net/research) which provided the data, vocal experimentations and valuable user feedback.
  
 ## Setup
 ```
