@@ -716,9 +716,10 @@ if __name__ == "__main__":
         [Input('dropdown_cluster', 'value'),
          Input('dropdown_n_clusters', 'value'),
          Input('dropdown_feats_type', 'value'), 
-         Input('btn_f', 'n_clicks')]
+         Input('btn_f', 'n_clicks'),
+         Input('retrain_model', 'children')]
     )
-    def save(method, n_clusters, feats_type, n_clicks_f):
+    def save(method, n_clusters, feats_type, n_clicks_f, retrained):
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]        
         if n_clicks_f and n_clicks_f!='no' and 'btn_f' in changed_id:
             clf=SVC()
@@ -737,8 +738,9 @@ if __name__ == "__main__":
             else:
                 feats = np.load('./dash/feats_deep.npy')
             clf.fit(feats,labels)
-            model = torch.load("./dash/model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), map_location=torch.device('cpu'))
-            torch.save(model, "model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type))
+            if retrained:
+                model = torch.load("./dash/model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), map_location=torch.device('cpu'))
+                torch.save(model, "model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type))
             # centers = np.load('./dash/centers.npy')
             # np.save('centers_{}_{}_{}_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), centers)
             pickle.dump(clf, open('clf_{}_{}_{}_{}.sav'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), 'wb'))
