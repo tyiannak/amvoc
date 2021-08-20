@@ -79,7 +79,7 @@ After the retraining procedure is finished, the user can inspect the new cluster
 
 The option "Save clustering" gives the opportunity to save the cluster label of each USV, the new autoencoder model as "model_fileName_clusteringMethod_numClusters_featureType" and also train a classifier, saved as "clf_fileName_clusteringMethod_numClusters_featureType", using USV representations and their corresponding labels as ground-truth data. 
 
-![execution example](screenshot_2.png "execution example 2")
+![execution example](screenshot3.png "execution example 2")
 
 This classifier, along with the model, can be used for the real-time classification of detected USVs in the main_live.py. This can be done by first changing the "model" parameter in the config.json with the name of the new model and run main_live.py as:
 

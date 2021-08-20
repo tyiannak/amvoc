@@ -22,6 +22,7 @@ MIN_VOC_DUR = config_data['params']['MIN_VOC_DUR']
 F1 = config_data['params']['F1']
 F2 = config_data['params']['F2']
 thres = config_data['params']['thres']
+factor = config_data['params']['factor']
 gamma_1 = config_data['params']['gamma_1']
 gamma_2 = config_data['params']['gamma_2']
 gamma_3 = config_data['params']['gamma_3']
@@ -30,7 +31,7 @@ num_ann_per_batch = config_data['params']['num_ann_per_batch']
 
 
 class ConvAutoencoder(nn.Module):
-    def __init__(self):
+    def __init__(self, n_clusters = 5, kmeans_centers=None):
         super(ConvAutoencoder, self).__init__()
         ## encoder layers ##
         # conv layer (depth from 3 --> 64), 3x3 kernels
@@ -42,13 +43,14 @@ class ConvAutoencoder(nn.Module):
 
         self.pool = nn.MaxPool2d((2,2), 2)
 
+        self.flatten = nn.Flatten()
         ## decoder layers ##
         # a kernel of 2 and a stride of 2 will increase the spatial dims by 2
         self.t_conv1 = nn.ConvTranspose2d(8, 32, 2, stride=2)
         self.t_conv2 = nn.ConvTranspose2d(32, 64, 2, stride=2)
         self.t_conv3 = nn.ConvTranspose2d(64, 1, 2, stride=2)
 
-    def forward(self, x):
+    def forward(self, x, decode = True, clustering = False, kmeans_centers=None):
         ## encode ##
         # add hidden layers with relu activation function
         # and maxpooling after
@@ -60,14 +62,27 @@ class ConvAutoencoder(nn.Module):
         # add third hidden layer
         x = F.relu(self.conv3(x))
         x = self.pool(x) # compressed representation
+       
 
-        if self.training:
+        if self.training and decode:
             ## decode ##
             # add transpose conv layers, with relu activation function
-            x = F.relu(self.t_conv1(x))        
-            x = F.relu(self.t_conv2(x))
+            y = F.relu(self.t_conv1(x))        
+            y = F.relu(self.t_conv2(y))
             # output layer (with sigmoid for scaling from 0 to 1)
-            x = F.sigmoid(self.t_conv3(x))      
+            y = F.sigmoid(self.t_conv3(y)) 
+            if not clustering:
+              return x, y
+
+        if self.training and clustering:
+            
+            x = self.flatten(x)
+            dist =torch.cdist(x, kmeans_centers)
+            q = ((1+dist.pow(2)).pow(-1))/torch.sum((1+dist.pow(2)).pow(-1),dim=1).view(torch.sum((1+dist.pow(2)).pow(-1),dim=1).shape[0],1)
+            if decode:
+                return x, y, q
+            else:
+                return x, q
         return x
 
 def parse_arguments():
@@ -78,7 +93,7 @@ def parse_arguments():
                         help="Folder")
     parser.add_argument("-ne", "--num_of_epochs", required=True, nargs=None,
                         help="Parameter")
-    parser.add_argument("-s", "--save_model", required=True, nargs=None,
+    parser.add_argument("-s", "--save_model", required=False, nargs=None,
                         help="Condition")
     return parser.parse_args()
 
@@ -86,6 +101,7 @@ def parse_arguments():
 
 def load_spectrograms (filename):
   train_data = []
+  print(filename)
   spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(filename,
                                                     ST_WIN, ST_STEP)
   # These should change depending on the signal's size
@@ -99,13 +115,15 @@ def load_spectrograms (filename):
   f1 = np.argmin(np.abs(sp_freq - f_low))
   f2 = np.argmin(np.abs(sp_freq - f_high))
 
-  spectral_energy_1 = spectrogram.sum(axis=1)
-  spectral_energy_2 = spectrogram[:, f1:f2].sum(axis=1)
-  seg_limits, thres_sm, _ = ap.get_syllables(spectral_energy_2,
-                                        spectral_energy_1,
-                                        ST_STEP,
-                                        threshold_per=thres * 100,
-                                        min_duration=MIN_VOC_DUR)
+  spectral_energy, mean_values, max_values = ap.prepare_features(spectrogram[:,f1:f2])
+  seg_limits, thres_sm = ap.get_syllables(spectral_energy,
+                                          mean_values,
+                                          max_values,
+                                          ST_STEP,
+                                          threshold_per=thres * 100,
+                                          factor=factor, 
+                                          min_duration=MIN_VOC_DUR,
+                                          )
   
   train_data += (ar.cluster_syllables(seg_limits, spectrogram,
                                           sp_freq, f_low, f_high,  ST_STEP, train = True))
@@ -192,7 +210,6 @@ def train_clust(spectrogram, train_loader, outputs_init, n_clusters):
             # train the model #
             ###################
             
-            # _ stands in for labels, here
             model.train()
             # clear the gradients of all optimized variables
             optimizer.zero_grad()
@@ -201,15 +218,18 @@ def train_clust(spectrogram, train_loader, outputs_init, n_clusters):
 
             outputs_ += outputs
             f_j = torch.sum(distr, dim=0)
+            # p distribution
             p = (distr.pow(2)/f_j.view(1, f_j.shape[0]))/torch.sum(distr.pow(2)/f_j.view(1, f_j.shape[0]), dim=1).view(torch.sum(distr.pow(2)/f_j.view(1, f_j.shape[0]), dim=1).shape[0],1)
             cnt = 0
             
             if epoch==0:
                 while (1):
                     dist = torch.cdist(outputs, outputs).cpu().detach().numpy()
+                    # keep the largest probability of belonging to a class 
                     max_ = np.amax(distr.cpu().detach().numpy(), axis=1)
                     max_ind = np.argmax(distr.cpu().detach().numpy(), axis=1)
                     sorted_max_ind = np.argsort(max_)
+                    # choose the USV with the greatest uncertainty of belonging to a class
                     x = sorted_max_ind[cnt]
                     # x = np.random.randint(feats[0].shape[0])
                     y = np.random.randint(feats[0].shape[0])
@@ -259,7 +279,7 @@ def train_clust(spectrogram, train_loader, outputs_init, n_clusters):
             loss.backward()
             # perform a single optimization step (parameter update)
             optimizer.step()
-            
+            #update kmeans centers according to gradient descent equation
             for i in range (kmeans_tensor.shape[0]):
                 der_loss_centers = -gamma_2*2*torch.sum((((1+(torch.cdist(outputs, kmeans_tensor[i,:].view(1,kmeans_tensor.shape[1]))).pow(2)).pow(-1)).view(batch)*(p[:,i]-distr[:,i]).view(batch))[:,None]*(outputs-kmeans_tensor[i,:]), dim=0)
                 kmeans_tensor[i,:] = kmeans_tensor[i,:] - 1000* der_loss_centers 
@@ -290,33 +310,33 @@ if __name__ == '__main__':
                 train_data += load_spectrograms(filename)
     
 
-    # Next part is for removing the false negatives from the dataset. 
+    # # Next part is for removing the false negatives from the dataset. 
 
-    for cur_image in train_data:
-        if len(cur_image)==0:
-            train_data.remove(cur_image)
-    test = []
-    # in order to classify the images, we use the following metrics
-    for cur_image in train_data:
-        test.append([np.mean(cur_image/np.amax(cur_image)),np.var(cur_image/np.amax(cur_image)), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))])
+    # for cur_image in train_data:
+    #     if len(cur_image)==0:
+    #         train_data.remove(cur_image)
+    # test = []
+    # # in order to classify the images, we use the following metrics
+    # for cur_image in train_data:
+    #     test.append([np.mean(cur_image/np.amax(cur_image)),np.var(cur_image/np.amax(cur_image)), np.mean(cur_image-np.amax(cur_image)), np.var(cur_image-np.amax(cur_image))])
 
-    # clustering to split the two categories
-    clusterer = KMeans(n_clusters=2)
-    y = clusterer.fit_predict(test)
-    train_data = np.array(train_data, dtype=object)
-    # we compare the mean of variances of the images in the two categories
-    var_0, var_1 = [], []
-    for element in train_data[y==1]:
-        var_1.append(np.var(element))
-    for element in train_data[y==0]:
-        var_0.append(np.var(element))
-    var_1 = np.mean(var_1)
-    var_0 = np.mean(var_0)
-    # we choose the images with the highest variance (true positives)
-    if var_1 > var_0:
-        train_data = list(train_data[y==1])
-    else:
-        train_data= list(train_data[y==0])
+    # # clustering to split the two categories
+    # clusterer = KMeans(n_clusters=2)
+    # y = clusterer.fit_predict(test)
+    # train_data = np.array(train_data, dtype=object)
+    # # we compare the mean of variances of the images in the two categories
+    # var_0, var_1 = [], []
+    # for element in train_data[y==1]:
+    #     var_1.append(np.var(element))
+    # for element in train_data[y==0]:
+    #     var_0.append(np.var(element))
+    # var_1 = np.mean(var_1)
+    # var_0 = np.mean(var_0)
+    # # we choose the images with the highest variance (true positives)
+    # if var_1 > var_0:
+    #     train_data = list(train_data[y==1])
+    # else:
+    #     train_data= list(train_data[y==0])
 
     time_limit = 64
     # cropping/padding the images and normalizing between (0,1)
@@ -355,7 +375,7 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     model = model.float()
-
+    train_loss_acc=[]
     for epoch in range(n_epochs):
 
         # monitor training loss
@@ -373,7 +393,7 @@ if __name__ == '__main__':
             # clear the gradients of all optimized variables
             optimizer.zero_grad()
             # forward pass: compute predicted outputs by passing inputs to the model
-            outputs = model(feats[0].float())
+            _,outputs = model(feats[0].float(), decode=True)
 
             loss = criterion(outputs, feats[0].float())
             # backward pass: compute gradient of the loss with respect to model parameters
@@ -384,12 +404,23 @@ if __name__ == '__main__':
             train_loss += loss.item()
             
         train_loss = train_loss/len(train_loader)
+        train_loss_acc.append(train_loss)
         print('Epoch: {} \tTraining Loss: {:.6f}'.format(
                 epoch, 
                 train_loss
                 ))
+        epoch+=1
+    
+    # plot training loss curve
+
+    # plt.plot(range(1,11),train_loss_acc, '-o')
+    # plt.title("Training loss")
+    # plt.xlabel("Number of epochs")
+    # plt.ylabel("Loss")
+    # plt.show()
 
     # we test the autoencoder on data we didn't use for training
+
     # test_data = load_spectrograms( "/content/drive/My Drive/B148_test_small.wav")
 
     # time_limit = 64
@@ -412,8 +443,8 @@ if __name__ == '__main__':
     # model.train()
     # with torch.no_grad():
     #     for data in test_loader:
-    #         outputs += model(data[0].to(device))
-
+            # _, outputs_ += model(data[0].to(device), decode=True)
+            #   outputs+=outputs_
 
     # for i in range(len(outputs)):
     #     outputs[i] = outputs[i].cpu().detach().numpy()
