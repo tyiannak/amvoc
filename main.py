@@ -36,6 +36,7 @@ import pickle
 import training_task as tr_t
 import umap
 import joblib
+import os
 
 colors = {'background': '#111111', 'text': '#7FDBFF'}
 
@@ -553,7 +554,8 @@ if __name__ == "__main__":
     time_start = time.time()
     spectrogram, sp_time, sp_freq, fs = ap.get_spectrogram(args.input_file,
                                                            ST_WIN, ST_STEP)
-
+    if not os.path.exists('dash'):
+        os.mkdir('dash')
     # save necessary
     np.save('./dash/sp_time.npy', sp_time)
     np.save('./dash/sp_freq.npy', sp_freq)
