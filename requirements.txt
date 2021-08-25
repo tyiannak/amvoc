@@ -13,3 +13,7 @@ Pillow==8.0.1
 pyaudio==0.2.11
 pyAudioAnalysis==0.3.6
 scikit_learn==0.24.0
+umap-learn==0.5.1
+tqdm==4.62.2
+eyed3==0.9.6
+pydub==0.25.1
