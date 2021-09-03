@@ -13,16 +13,21 @@ import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 import plotly.graph_objs as go
+from plotly.subplots import make_subplots
+import plotly.express as px
 from dash.dependencies import Input, Output, State
 from dash_table import DataTable
 import audio_process as ap
 import audio_recognize as ar
 import utils
 import dash_bootstrap_components as dbc
+from dash.exceptions import PreventUpdate
 from sklearn.manifold import TSNE
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from scipy.spatial import distance
+from scipy.special import erf, erfc
 import matplotlib
 # matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -52,6 +57,7 @@ gamma_1 = config_data['params']['gamma_1']
 gamma_2 = config_data['params']['gamma_2']
 gamma_3 = config_data['params']['gamma_3']
 model_name = config_data['params']['model']
+num_ann_per_batch = config_data['params']['num_ann_per_batch']
 
 
 class ConvAutoencoder(nn.Module):
@@ -63,14 +69,14 @@ class ConvAutoencoder(nn.Module):
         # conv layer (depth from 64 --> 32), 3x3 kernels
         self.conv2 = nn.Conv2d(64, 32, 3, padding=1)
         # conv layer (depth from 32 --> 8), 3x3 kernels
-        self.conv3 = nn.Conv2d(32, 8, 3, padding=1)
+        self.conv3 = nn.Conv2d(32, 4, 3, padding=1)
 
         self.pool = nn.MaxPool2d((2,2), 2)
 
         self.flatten = nn.Flatten()
         ## decoder layers ##
         # a kernel of 2 and a stride of 2 will increase the spatial dims by 2
-        self.t_conv1 = nn.ConvTranspose2d(8, 32, 2, stride=2)
+        self.t_conv1 = nn.ConvTranspose2d(4, 32, 2, stride=2)
         self.t_conv2 = nn.ConvTranspose2d(32, 64, 2, stride=2)
         self.t_conv3 = nn.ConvTranspose2d(64, 1, 2, stride=2)
 
@@ -133,6 +139,16 @@ def get_shapes(segments, freq1, freq2):
         shapes1.append(s1)
     return shapes1
 
+def save_ckp(state, checkpoint_dir):
+    f_path = checkpoint_dir / 'checkpoint.pt'
+    torch.save(state, f_path)
+
+def load_ckp(checkpoint_fpath, model, optimizer):
+    checkpoint = torch.load(checkpoint_fpath)
+    model.load_state_dict(checkpoint['state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
+    return model, optimizer
+
 
 def get_layout(spec=False):
 
@@ -146,7 +162,8 @@ def get_layout(spec=False):
     time_end = time.time()
     print("Time needed for vocalizations detection: {} s".format(round(time_end-time_start, 1)))
     continue_ = args.continue_
-    global voc_name
+    global voc_name, bn
+    bn=0
     voc_name = 'offline_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
     with open(voc_name, 'w') as fp:
             writer=csv.writer(fp)
@@ -453,6 +470,34 @@ def get_layout(spec=False):
                     width=2,
                     style={'display': 'block'}
                 ),
+                # dbc.Col(
+                # html.Div(
+                #         [
+                #             dbc.Button("Retrain model", id="btn_r", n_clicks=0),
+                #             dbc.Modal(
+                #                 [
+                #                     dbc.ModalHeader("Should the two vocalizations belong to the same cluster?"),
+                #                     dbc.ModalBody(
+                #                         dbc.Col(
+                #                         dcc.Graph(id='pw_specs'), width = 9, md = 8, style={'marginLeft': 0})),
+                #                         # dcc.Graph(id='pw_specs'), width = 9, md = 8, style={'marginLeft': 0}),
+                #                     dbc.ModalFooter(
+                #                         dbc.Row([
+                #                             dbc.Col(html.Button("Yes", id="b_y", className="ml-auto", n_clicks=0)),
+                #                             dbc.Col(html.Button("No", id="b_n", className="ml-auto", n_clicks=0)),
+                #                             dbc.Col(html.Button("Stop", id="b_stop", className="ml-auto", n_clicks=0))]
+                #                         )   
+                #                         ),
+                #                 ],
+                #                 id="modal",
+                #                 is_open=False,
+                #             ),
+                #         ]
+                #     ),
+                # width=2,
+                # style={'display': 'block'}
+                # ),
+                
                 dbc.Col(
                     html.Button('Update', id='btn_s', n_clicks=0),  
                     width=2,
@@ -542,8 +587,38 @@ def get_layout(spec=False):
             dbc.Row(id='clustering_info', style={'display': 'none'}),
             dbc.Row(id='save_clustering', style={'display':'none'}),
             dbc.Row(id='retrain_model', style={'display':'none'}),
+            dbc.Row(id='retrain_const', style={'display':'none'}),
+            dbc.Row(id='retrain_batch', style={'display':'none'}),
+            dbc.Row(id='train_after_stop', style={'display':'none'}),
             dbc.Row(id='update', style={'display':'none'}),
             dbc.Row(id='pairs', style={'display':'none'}),
+            dbc.Row(html.Div(
+                        [
+                            # dbc.Button("Retrain model", id="btn_r", n_clicks=0),
+                            dbc.Modal(
+                                [
+                                    dbc.ModalHeader("Should the two vocalizations belong to the same cluster?"),
+                                    dbc.ModalBody(
+                                        # dbc.Col(
+                                        dcc.Graph(id='pw_specs')),
+                                        # dcc.Graph(id='pw_specs'), width = 9, md = 8, style={'marginLeft': 0})),
+                                    dbc.ModalFooter(
+                                        dbc.Row([
+                                            dbc.Col(html.Button("Yes", id="b_y", className="ml-auto", n_clicks=0)),
+                                            dbc.Col(html.Button("No", id="b_n", className="ml-auto", n_clicks=0)),
+                                            dbc.Col(html.Button("Stop", id="b_stop", className="ml-auto", n_clicks=0)),
+                                            dbc.Col(html.Button("Cancel", id="b_cancel", className="ml-auto", n_clicks=0))]
+                                        )   
+                                        ),
+                                ],
+                                id="modal",
+                                backdrop='static',
+                                is_open=False,
+                            ),
+                        ]
+                    ),
+                style={'display': 'none'}
+                )
         ], style={"height": "100vh"})
     return layout
 
@@ -750,29 +825,208 @@ if __name__ == "__main__":
             joblib.dump(joblib.load('./dash/std_scaler.bin'),'std_scaler_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
             joblib.dump(joblib.load('./dash/pca.bin'),'pca_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
             print("SAVED")
+        return '{}'
 
     @app.callback(
         Output('retrain_model', 'children'),
         [Input('dropdown_cluster', 'value'),
-         Input('dropdown_n_clusters', 'value'),
-         Input('dropdown_feats_type', 'value'), 
-         Input('btn_r', 'n_clicks')]
+        Input('dropdown_n_clusters', 'value'),
+        Input('dropdown_feats_type', 'value'),
+        Input('btn_r', 'n_clicks')]
     )
     def retrain(method, n_clusters, feats_type, n_clicks_r):
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]   
         retrained=False     
+
+        setup = [method, n_clusters, feats_type]
+        with open("./dash/setup.txt", "wb") as fp:   #Pickling
+               pickle.dump(setup, fp)
         if n_clicks_r and n_clicks_r!='no' and 'btn_r' in changed_id:
             specs=np.load('./dash/specs.npy')
             train_loader = tr_t.data_prep(specs)
-            # pairwise_constraints=np.load('./dash/pw.npy')
-            spectrogram = np.load('./dash/images.npy', allow_pickle=True)
-            outputs = np.load('./dash/outputs_deep.npy')
-            model = tr_t.train_clust(spectrogram, train_loader, outputs, n_clusters)
-            path = "./dash/model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type)
-            torch.save(model, path)
+            torch.save(train_loader, './dash/trainloader')
 
+            spectrogram = np.load('./dash/images.npy', allow_pickle=True)
+            outputs_init = np.load('./dash/outputs_deep.npy')
+
+            model = torch.load(model_name)
+            optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+            ckp_path = "./dash/checkpoint.pt"
+
+            checkpoint = {
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict()
+            }
+            torch.save(checkpoint, './dash/checkpoint.pt')
+            clusterer = KMeans(n_clusters=n_clusters, random_state=9)
+
+            y_ = clusterer.fit_predict(np.array(outputs_init,dtype=object))
+            kmeans_centers = clusterer.cluster_centers_
+            np.save('./dash/kmeans_centers.npy', kmeans_centers)
+            pairwise_constraints = np.zeros((len(spectrogram), len(spectrogram)))
+            np.save('./dash/pwc.npy', pairwise_constraints)
+
+            bn, cnt, x, y, dist = 0, 0, -1, -1, 0
+            
+            batches = []
+            for i,feats in enumerate(train_loader):
+                batches.append(feats[0])
+            batch_size = batches[0].shape[0]
+            help_ = [bn, cnt, x, y, dist, batch_size]
+            np.save('./dash/help.npy', np.array(help_))
+            
+            with open("./dash/batches.txt", "wb") as fp:   #Pickling
+               pickle.dump(batches, fp)
+            
             retrained=True
+
         return retrained
+    @app.callback(
+        Output('retrain_const', 'children'),
+        [Input('retrain_model', 'children'),
+         Input('retrain_batch', 'children'),
+         Input('btn_r', 'n_clicks')]
+    )
+    def retrain_set_const(retrain_model, retrain_batch, btn_r):
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]   
+        if (retrain_model and 'btn_r' in changed_id) or retrain_batch:  
+            train_loader = torch.load('./dash/trainloader')
+            kmeans_centers = np.load('./dash/kmeans_centers.npy')
+            pairwise_constraints = np.load('./dash/pwc.npy')
+
+            help_=np.load('./dash/help.npy')
+            cnt= int(help_[1])
+            batch_size=int(help_[-1])
+            bn = int(help_[0])
+            with open("./dash/batches.txt", "rb") as fp:
+                batches = pickle.load(fp)
+            model = ConvAutoencoder()
+            optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+            ckp_path = "./dash/checkpoint.pt"
+            model, optimizer = load_ckp(ckp_path, model, optimizer)
+
+            x,y, dist = tr_t.set_constraints(train_loader, model, batches[bn], kmeans_centers, cnt) 
+            spectrogram = np.load('./dash/images.npy', allow_pickle=True)
+
+            image_1 = spectrogram[bn*batch_size+x].T
+            image_2 = spectrogram[bn*batch_size+y].T
+            cnt+=1
+
+            help_=[help_[0], cnt, x, y, dist, batch_size]
+            np.save('./dash/help.npy', np.array(help_))
+            np.save('./dash/image_1.npy', image_1)
+            np.save('./dash/image_2.npy', image_2)
+            return True
+        else:
+            return False
+    
+    @app.callback(
+        [Output("modal", "is_open"),
+        Output('pw_specs', 'figure')],
+        [Input('b_y', 'n_clicks'),
+        Input('b_n', 'n_clicks'),
+        Input('b_stop', 'n_clicks'),
+        Input('b_cancel', 'n_clicks'),
+        Input("retrain_const", "children")],
+        [State("modal", "is_open"),
+        ],
+    )
+    def toggle_modal(b_y, b_n, b_stop, b_cancel, images, is_open):
+
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]  
+
+        if (b_y and 'b_y' in changed_id)  or (b_n and 'b_n' in changed_id) or b_stop or (b_cancel and 'b_cancel' in changed_id):
+            return False, []
+        if images:
+
+            image_1 = np.load('./dash/image_1.npy')
+            image_2 = np.load('./dash/image_2.npy')
+            
+            sp_time = np.load('./dash/sp_time.npy')
+            sp_freq = np.load('./dash/sp_freq.npy')
+            images = np.load('./dash/images.npy', allow_pickle=True)
+            f1 = np.load('./dash/f1.npy')
+            f2 = np.load('./dash/f2.npy')
+            fig = make_subplots(1, 2, column_widths=[image_1.shape[1], image_2.shape[1]], shared_yaxes=True, y_title='Frequency (kHz)')
+            fig.add_trace(go.Heatmap(x = [i for i in range(image_1.shape[1])], y= [i for i in range(image_1.shape[0])], z = image_1, showscale=False), 1, 1)
+
+            fig.add_trace(go.Heatmap(x = [i for i in range(image_2.shape[1])], y= [i for i in range(image_2.shape[0])], z = image_2,showscale=False), 1, 2)
+            fig.update_xaxes(title_text = 'Time (ms)', tickmode = 'array', tickvals = [i for i in np.arange(0,140,10)], ticktext=['{}'.format(i) for i in range(0,280,20)])
+
+            segments=np.load('./dash/segments.npy')
+
+            return True, fig
+
+        return is_open, []
+
+    @app.callback(
+        Output('retrain_batch', 'children'),
+        [Input('b_y', 'n_clicks'),
+        Input('b_n', 'n_clicks'),
+        Input('b_stop', 'n_clicks'),
+        ]
+    )
+    def retrain_batch(b_y, b_n, b_stop):
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]  
+
+        if changed_id=='.':
+            raise PreventUpdate
+        pairwise_constraints=np.load('./dash/pwc.npy')
+
+        help_=np.load('./dash/help.npy')
+
+        [bn, cnt, x, y, dist, batch_size] = list(help_)
+        stop = False
+
+        bn, cnt, x, y, batch_size = int(bn), int(cnt), int(x), int(y), int(batch_size)
+        if b_y and 'b_y' in changed_id:
+            pairwise_constraints[bn*batch_size+x, bn*batch_size+y] = erf(25/dist)
+            pairwise_constraints[bn*batch_size+y, bn*batch_size+x] = erf(25/dist)
+        elif b_n and 'b_n' in changed_id:
+            pairwise_constraints[bn*batch_size+x, bn*batch_size+y] = erf(-25/dist)
+            pairwise_constraints[bn*batch_size+y, bn*batch_size+x] = erf(-25/dist)
+        elif b_stop:
+            stop =True
+
+        np.save('./dash/pwc.npy', pairwise_constraints)
+        
+        if cnt==num_ann_per_batch or stop:
+            
+            while(1):
+                kmeans_centers = np.load('./dash/kmeans_centers.npy')
+
+                model = ConvAutoencoder()
+                optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+                ckp_path = "./dash/checkpoint.pt"
+                model, optimizer = load_ckp(ckp_path, model, optimizer)
+                with open("./dash/batches.txt", "rb") as fp:
+                    batches = pickle.load(fp)
+                model, kmeans_centers, optimizer=tr_t.train_one_batch(model, optimizer, batches[bn],pairwise_constraints, kmeans_centers, bn)
+                bn+=1
+                checkpoint = {
+                    'state_dict': model.state_dict(),
+                    'optimizer': optimizer.state_dict()
+                }
+                torch.save(checkpoint, './dash/checkpoint.pt')
+                np.save('./dash/kmeans_centers.npy', kmeans_centers)
+                train_loader = torch.load('./dash/trainloader')
+
+                cnt=0
+                help_[0], help_[1]=bn, cnt
+                np.save('./dash/help.npy', help_)
+                if bn==len(train_loader):
+                    model = tr_t.train_clust(model, train_loader)
+                    with open("./dash/setup.txt", "rb") as fp:
+                        setup = pickle.load(fp)
+                    path = "./dash/model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], setup[0], setup[1], setup[2])
+                    torch.save(model, path)
+                    return False
+
+                if stop:
+                    continue
+                return True
+        else:
+            return False
     
     @app.callback(
         Output('update', 'children'),

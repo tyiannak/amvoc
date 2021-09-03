@@ -166,11 +166,138 @@ def plot_func():
     plt.xlabel('Time (ms)')
     plt.ylabel('Frequency (kHz)')
 
-def train_clust(spectrogram, train_loader, outputs_init, n_clusters):
+# def train_clust(spectrogram, train_loader, outputs_init, n_clusters):
+
+#     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    
+#     model = torch.load(model_name, map_location=device)
+    
+#     criteria = [nn.BCELoss(),nn.KLDivLoss(reduction='batchmean')]
+
+#     # specify loss function
+#     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+#     # number of epochs to train the model
+#     n_epochs = 3
+
+#     model = model.float()
+
+#     clusterer = KMeans(n_clusters=n_clusters, random_state=9)
+
+#     y = clusterer.fit_predict(np.array(outputs_init,dtype=object))
+#     kmeans_centers = clusterer.cluster_centers_
+#     kmeans_tensor = torch.tensor(kmeans_centers).to(device).float()
+#     epoch = 0
+#     train_loss=0.0
+#     end=False
+
+#     pairwise_constraints = np.zeros((len(spectrogram), len(spectrogram)))
+#     for epoch in range(n_epochs):
+#         if train_loss<-0.1 and epoch>1:
+#             # print(epoch)
+#             break
+#         train_loss = 0.0
+#         outputs_ = []
+#         answer = 'start'
+#         for i,feats in enumerate(train_loader):
+#         # monitor training loss
+#             if i ==0:
+#                 batch_size = feats[0].shape[0]
+                
+#             batch = feats[0].shape[0]
+#             feats[0] = feats[0].to(device)
+#             ###################
+#             # train the model #
+#             ###################
+            
+#             model.train()
+#             # clear the gradients of all optimized variables
+#             optimizer.zero_grad()
+#             # forward pass: compute predicted outputs by passing inputs to the model
+#             outputs, rec, distr = model(feats[0].float(), decode = True, clustering = True, kmeans_centers = torch.tensor(kmeans_tensor).to(device).float())
+
+#             outputs_ += outputs
+#             f_j = torch.sum(distr, dim=0)
+#             # p distribution
+#             p = (distr.pow(2)/f_j.view(1, f_j.shape[0]))/torch.sum(distr.pow(2)/f_j.view(1, f_j.shape[0]), dim=1).view(torch.sum(distr.pow(2)/f_j.view(1, f_j.shape[0]), dim=1).shape[0],1)
+#             cnt = 0
+            
+#             if epoch==0:
+#                 while (1):
+#                     dist = torch.cdist(outputs, outputs).cpu().detach().numpy()
+#                     # keep the largest probability of belonging to a class 
+#                     max_ = np.amax(distr.cpu().detach().numpy(), axis=1)
+#                     max_ind = np.argmax(distr.cpu().detach().numpy(), axis=1)
+#                     sorted_max_ind = np.argsort(max_)
+#                     # choose the USV with the greatest uncertainty of belonging to a class
+#                     x = sorted_max_ind[cnt]
+#                     # x = np.random.randint(feats[0].shape[0])
+#                     y = np.random.randint(feats[0].shape[0])
+                
+#                     if (i*batch+x)<len(pairwise_constraints) and (i*batch+y)<len(pairwise_constraints):
+#                         if x==y:
+#                             continue
+#                         else:
+#                             cnt += 1
+#                     plt.ion()
+#                     plt.show()
+#                     if answer!='stop':
+#                         plt.figure(figsize=(5,5))
+#                         plt.subplot(1,2,1)
+#                         plot_func()
+#                         plt.imshow(np.flip(spectrogram[i*batch+x], axis=1).T)
+#                         plt.subplot(1,2,2)
+#                         plot_func()
+#                         plt.imshow(np.flip(spectrogram[i*batch+y], axis=1).T)
+#                         plt.pause(0.001)
+#                         plt.draw()
+#                         print()
+#                         answer = input("Should the two vocalizations belong to the same cluster? (y/n). If you want to stop, type 'stop'. \n")
+#                         plt.close()
+                        
+#                     while (answer!='stop'):
+#                         if answer=='y':
+
+#                             pairwise_constraints[i*batch+x, i*batch+y] = erf(25/dist[x,y])
+#                             pairwise_constraints[i*batch+y, i*batch+x] = erf(25/dist[x,y])
+
+#                             break
+#                         elif answer=='n':
+#                             pairwise_constraints[i*batch+x, i*batch+y] = erf(-25/dist[x,y])
+#                             pairwise_constraints[i*batch+y, i*batch+x] = erf(-25/dist[x,y])
+
+#                             break
+#                         else:
+#                             print()
+#                             answer = input("Please provide a new answer (y/n) \n")
+#                     if cnt == num_ann_per_batch:
+#                         break
+
+#             loss = gamma_1*criteria[0](rec, feats[0].float())+gamma_2*criteria[1](torch.log(distr),p) + gamma_3*(1/(epoch+1))*PWLoss(batch_size, outputs, pairwise_constraints[i*batch:(i+1)*batch, i*batch:(i+1)*batch])
+    
+#             # backward pass: compute gradient of the loss with respect to model parameters
+#             loss.backward()
+#             # perform a single optimization step (parameter update)
+#             optimizer.step()
+#             #update kmeans centers according to gradient descent equation
+#             for i in range (kmeans_tensor.shape[0]):
+#                 der_loss_centers = -gamma_2*2*torch.sum((((1+(torch.cdist(outputs, kmeans_tensor[i,:].view(1,kmeans_tensor.shape[1]))).pow(2)).pow(-1)).view(batch)*(p[:,i]-distr[:,i]).view(batch))[:,None]*(outputs-kmeans_tensor[i,:]), dim=0)
+#                 kmeans_tensor[i,:] = kmeans_tensor[i,:] - 1000* der_loss_centers 
+#             train_loss += loss.item()
+
+#         plt.close()
+
+#         train_loss = train_loss/len(train_loader)
+#         print('Epoch: {} \tTraining Loss: {:.6f}'.format(
+#                 epoch, 
+#                 train_loss
+#                 ))
+#     print("TRAINING IS DONE")
+#     return model
+
+def train_clust(model, train_loader):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    
-    model = torch.load(model_name, map_location=device)
     
     criteria = [nn.BCELoss(),nn.KLDivLoss(reduction='batchmean')]
 
@@ -178,27 +305,20 @@ def train_clust(spectrogram, train_loader, outputs_init, n_clusters):
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     # number of epochs to train the model
-    n_epochs = 3
+    n_epochs = 2
 
     model = model.float()
 
-    clusterer = KMeans(n_clusters=n_clusters, random_state=9)
-
-    y = clusterer.fit_predict(np.array(outputs_init,dtype=object))
-    kmeans_centers = clusterer.cluster_centers_
+    kmeans_centers = np.load('./dash/kmeans_centers.npy')
     kmeans_tensor = torch.tensor(kmeans_centers).to(device).float()
-    epoch = 0
     train_loss=0.0
-    end=False
 
-    pairwise_constraints = np.zeros((len(spectrogram), len(spectrogram)))
+    pairwise_constraints = np.load('./dash/pwc.npy')
     for epoch in range(n_epochs):
-        if train_loss<-0.1 and epoch>1:
-            # print(epoch)
+        if train_loss<-0.1 and epoch>0:
             break
         train_loss = 0.0
-        outputs_ = []
-        answer = 'start'
+
         for i,feats in enumerate(train_loader):
         # monitor training loss
             if i ==0:
@@ -214,64 +334,12 @@ def train_clust(spectrogram, train_loader, outputs_init, n_clusters):
             # clear the gradients of all optimized variables
             optimizer.zero_grad()
             # forward pass: compute predicted outputs by passing inputs to the model
-            outputs, rec, distr = model(feats[0].float(), decode = True, clustering = True, kmeans_centers = torch.tensor(kmeans_tensor).to(device).float())
+            outputs, rec, distr = model(feats[0].float(), decode = True, clustering = True, kmeans_centers = torch.tensor(kmeans_centers).to(device).float())
 
-            outputs_ += outputs
             f_j = torch.sum(distr, dim=0)
             # p distribution
             p = (distr.pow(2)/f_j.view(1, f_j.shape[0]))/torch.sum(distr.pow(2)/f_j.view(1, f_j.shape[0]), dim=1).view(torch.sum(distr.pow(2)/f_j.view(1, f_j.shape[0]), dim=1).shape[0],1)
             cnt = 0
-            
-            if epoch==0:
-                while (1):
-                    dist = torch.cdist(outputs, outputs).cpu().detach().numpy()
-                    # keep the largest probability of belonging to a class 
-                    max_ = np.amax(distr.cpu().detach().numpy(), axis=1)
-                    max_ind = np.argmax(distr.cpu().detach().numpy(), axis=1)
-                    sorted_max_ind = np.argsort(max_)
-                    # choose the USV with the greatest uncertainty of belonging to a class
-                    x = sorted_max_ind[cnt]
-                    # x = np.random.randint(feats[0].shape[0])
-                    y = np.random.randint(feats[0].shape[0])
-                
-                    if (i*batch+x)<len(pairwise_constraints) and (i*batch+y)<len(pairwise_constraints):
-                        if x==y:
-                            continue
-                        else:
-                            cnt += 1
-                    plt.ion()
-                    plt.show()
-                    if answer!='stop':
-                        plt.figure(figsize=(5,5))
-                        plt.subplot(1,2,1)
-                        plot_func()
-                        plt.imshow(np.flip(spectrogram[i*batch+x], axis=1).T)
-                        plt.subplot(1,2,2)
-                        plot_func()
-                        plt.imshow(np.flip(spectrogram[i*batch+y], axis=1).T)
-                        plt.pause(0.001)
-                        plt.draw()
-                        print()
-                        answer = input("Should the two vocalizations belong to the same cluster? (y/n). If you want to stop, type 'stop'. \n")
-                        plt.close()
-                        
-                    while (answer!='stop'):
-                        if answer=='y':
-
-                            pairwise_constraints[i*batch+x, i*batch+y] = erf(25/dist[x,y])
-                            pairwise_constraints[i*batch+y, i*batch+x] = erf(25/dist[x,y])
-
-                            break
-                        elif answer=='n':
-                            pairwise_constraints[i*batch+x, i*batch+y] = erf(-25/dist[x,y])
-                            pairwise_constraints[i*batch+y, i*batch+x] = erf(-25/dist[x,y])
-
-                            break
-                        else:
-                            print()
-                            answer = input("Please provide a new answer (y/n) \n")
-                    if cnt == num_ann_per_batch:
-                        break
 
             loss = gamma_1*criteria[0](rec, feats[0].float())+gamma_2*criteria[1](torch.log(distr),p) + gamma_3*(1/(epoch+1))*PWLoss(batch_size, outputs, pairwise_constraints[i*batch:(i+1)*batch, i*batch:(i+1)*batch])
     
@@ -285,8 +353,6 @@ def train_clust(spectrogram, train_loader, outputs_init, n_clusters):
                 kmeans_tensor[i,:] = kmeans_tensor[i,:] - 1000* der_loss_centers 
             train_loss += loss.item()
 
-        plt.close()
-
         train_loss = train_loss/len(train_loader)
         print('Epoch: {} \tTraining Loss: {:.6f}'.format(
                 epoch, 
@@ -295,6 +361,68 @@ def train_clust(spectrogram, train_loader, outputs_init, n_clusters):
     print("TRAINING IS DONE")
     return model
 
+def train_one_batch(model, optimizer, batch, pairwise_constraints, kmeans_centers, batch_num):
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    
+    criteria = [nn.BCELoss(),nn.KLDivLoss(reduction='batchmean')]
+
+    # specify loss function
+
+    model = model.float()
+
+    batch_size = batch.shape[0]
+    batch = batch.to(device)
+
+    ###################
+    # train the model #
+    ###################
+    
+    model.train()
+    # clear the gradients of all optimized variables
+    optimizer.zero_grad()
+    # forward pass: compute predicted outputs by passing inputs to the model
+    outputs, rec, distr = model(batch.float(), decode = True, clustering = True, kmeans_centers = torch.tensor(kmeans_centers).to(device).float())
+
+    f_j = torch.sum(distr, dim=0)
+    # p distribution
+    p = (distr.pow(2)/f_j.view(1, f_j.shape[0]))/torch.sum(distr.pow(2)/f_j.view(1, f_j.shape[0]), dim=1).view(torch.sum(distr.pow(2)/f_j.view(1, f_j.shape[0]), dim=1).shape[0],1)
+
+    loss = gamma_1*criteria[0](rec, batch.float())+gamma_2*criteria[1](torch.log(distr),p) + gamma_3*PWLoss(batch_size, outputs, pairwise_constraints[batch_num*batch_size:(batch_num+1)*batch_size, batch_num*batch_size:(batch_num+1)*batch_size])
+    
+    # backward pass: compute gradient of the loss with respect to model parameters
+    loss.backward()
+    # perform a single optimization step (parameter update)
+    optimizer.step()
+    kmeans_tensor= torch.tensor(kmeans_centers).to(device).float()
+    #update kmeans centers according to gradient descent equation
+    for i in range (kmeans_tensor.shape[0]):
+        der_loss_centers = -gamma_2*2*torch.sum((((1+(torch.cdist(outputs, kmeans_tensor[i,:].view(1,kmeans_tensor.shape[1]))).pow(2)).pow(-1)).view(batch_size)*(p[:,i]-distr[:,i]).view(batch_size))[:,None]*(outputs-kmeans_tensor[i,:]), dim=0)
+        kmeans_tensor[i,:] = kmeans_tensor[i,:] - 1000* der_loss_centers 
+    kmeans_centers=kmeans_tensor.detach().numpy()
+    return model, kmeans_centers, optimizer
+
+def set_constraints(train_loader, model, batch, kmeans_centers, cnt):
+    pairwise_constraints=np.load('./dash/pwc.npy')
+    model = model.float()
+    with torch.no_grad():
+        outputs, distr = model(batch, decode=False, clustering=True, kmeans_centers = torch.tensor(kmeans_centers).float())
+    
+    while (1):
+        dist = torch.cdist(outputs, outputs).cpu().detach().numpy()
+        # keep the largest probability of belonging to a class 
+        max_ = np.amax(distr.cpu().detach().numpy(), axis=1)
+        max_ind = np.argmax(distr.cpu().detach().numpy(), axis=1)
+        sorted_max_ind = np.argsort(max_)
+        # choose the USV with the greatest uncertainty of belonging to a class
+        x = sorted_max_ind[cnt]
+        # x = np.random.randint(feats[0].shape[0])
+        y = np.random.randint(batch.shape[0])
+    
+        if x<len(pairwise_constraints) and y<len(pairwise_constraints):
+            if x==y:
+                continue
+        return x, y, dist[x,y]
 
 if __name__ == '__main__':
 
