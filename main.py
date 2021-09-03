@@ -334,7 +334,7 @@ def get_layout(spec=False):
                     style={'display': 'block'}
                 ),
                 dbc.Col(
-                    html.Button('Save model', id='btn_s', n_clicks=0),  
+                    html.Button('Update', id='btn_s', n_clicks=0),  
                     width=2,
                     style={'display': 'block'}
                 ),
@@ -420,8 +420,41 @@ def get_layout(spec=False):
             dbc.Row(id='intermediate_val_syllables', style={'display': 'none'}),
             dbc.Row(id='intermediate_val_total_clusters', style={'display': 'none'}),
             dbc.Row(id='intermediate_val_clusters', style={'display': 'none'}),
-            dbc.Row(id='clustering_info',
-                     style={'display': 'none'})
+            dbc.Row(id='clustering_info', style={'display': 'none'}),
+            dbc.Row(id='save_clustering', style={'display':'none'}),
+            dbc.Row(id='retrain_model', style={'display':'none'}),
+            dbc.Row(id='retrain_const', style={'display':'none'}),
+            dbc.Row(id='retrain_batch', style={'display':'none'}),
+            dbc.Row(id='train_after_stop', style={'display':'none'}),
+            dbc.Row(id='update', style={'display':'none'}),
+            dbc.Row(id='pairs', style={'display':'none'}),
+            dbc.Row(html.Div(
+                        [
+                            # dbc.Button("Retrain model", id="btn_r", n_clicks=0),
+                            dbc.Modal(
+                                [
+                                    dbc.ModalHeader("Should the two vocalizations belong to the same cluster?"),
+                                    dbc.ModalBody(
+                                        # dbc.Col(
+                                        dcc.Graph(id='pw_specs')),
+                                        # dcc.Graph(id='pw_specs'), width = 9, md = 8, style={'marginLeft': 0})),
+                                    dbc.ModalFooter(
+                                        dbc.Row([
+                                            dbc.Col(html.Button("Yes", id="b_y", className="ml-auto", n_clicks=0)),
+                                            dbc.Col(html.Button("No", id="b_n", className="ml-auto", n_clicks=0)),
+                                            dbc.Col(html.Button("Stop", id="b_stop", className="ml-auto", n_clicks=0)),
+                                            dbc.Col(html.Button("Cancel", id="b_cancel", className="ml-auto", n_clicks=0))]
+                                        )   
+                                        ),
+                                ],
+                                id="modal",
+                                backdrop='static',
+                                is_open=False,
+                            ),
+                        ]
+                    ),
+                style={'display': 'none'}
+                )
         ], style={"height": "100vh"})
     else:
         layout = dbc.Container([
@@ -470,33 +503,6 @@ def get_layout(spec=False):
                     width=2,
                     style={'display': 'block'}
                 ),
-                # dbc.Col(
-                # html.Div(
-                #         [
-                #             dbc.Button("Retrain model", id="btn_r", n_clicks=0),
-                #             dbc.Modal(
-                #                 [
-                #                     dbc.ModalHeader("Should the two vocalizations belong to the same cluster?"),
-                #                     dbc.ModalBody(
-                #                         dbc.Col(
-                #                         dcc.Graph(id='pw_specs'), width = 9, md = 8, style={'marginLeft': 0})),
-                #                         # dcc.Graph(id='pw_specs'), width = 9, md = 8, style={'marginLeft': 0}),
-                #                     dbc.ModalFooter(
-                #                         dbc.Row([
-                #                             dbc.Col(html.Button("Yes", id="b_y", className="ml-auto", n_clicks=0)),
-                #                             dbc.Col(html.Button("No", id="b_n", className="ml-auto", n_clicks=0)),
-                #                             dbc.Col(html.Button("Stop", id="b_stop", className="ml-auto", n_clicks=0))]
-                #                         )   
-                #                         ),
-                #                 ],
-                #                 id="modal",
-                #                 is_open=False,
-                #             ),
-                #         ]
-                #     ),
-                # width=2,
-                # style={'display': 'block'}
-                # ),
                 
                 dbc.Col(
                     html.Button('Update', id='btn_s', n_clicks=0),  
