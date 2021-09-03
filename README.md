@@ -73,7 +73,7 @@ python3 syllables_comp.py -i data/vocalizations_evaluation/1/rec_1.wav -csv1 rea
 The evaluation metrics are displayed on terminal. 
 
 Semisupervised option:
-The user can intervene in the re-training of the autoencoder used for feature extraction (Method 1) from USVs in order to explore new clustering alternatives, by imposing pairwise constraints between USVs. This is achieved by clicking on the "Retrain model" button on the GUI. Pairs of detected USVs will subsequently pop up and the user can declare whether or not they should belong to the same cluster by typing "y" or "n" respectively, in the terminal.
+The user can intervene in the re-training of the autoencoder used for feature extraction (Method 1) from USVs in order to explore new clustering alternatives, by imposing pairwise constraints between USVs. This is achieved by clicking on the "Retrain model" button on the GUI. Pairs of detected USVs will subsequently pop up and the user can declare whether or not they should belong to the same cluster by clicking "Yes" or "No" respectively, in the pop-up window. If they want to continue the retraining procedure without annotating more pairs, they can click on the "Stop" button, and if they want to completely interrupt the retraining, they can click on the "Cancel" button.
 
 After the retraining procedure is finished, the user can inspect the new clustering by clicking on "Update" button. 
 
