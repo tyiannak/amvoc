@@ -29,15 +29,18 @@ GUI through the dash local address `http://127.0.0.1:8050/`
 ![execution example](screenshot.png "execution example")
 
 ## Vocalization detection
-If the user runs the `main.py`, the vocalizations are saved in a csv file named offline_vocalizations.csv.
-By running the `main_live.py`, the user can get the detected vocalizations in online mode (every 750msec). It just takes the WAV filename of the recording.
+If the user runs the `main.py`, the vocalizations are saved in a csv file named 
+`offline_vocalizations.csv`.
+By running the `main_live.py`, the user can get the detected vocalizations 
+in online mode (every 750msec).  
+It just takes the WAV filename of the recording to be processed (or no filename 
+if the signal is to berecorded from the soundcard).
 
 ```
 python3 main_live.py -i data/B148_test_small.wav
 ```
 
-If no filename is provided, then the signal is recorded during the running of the program. 
-If the user runs the `main_live.py`, the vocalizations are saved in a csv file named realtime_vocalizations.csv.  
+`main_live.py` saves the vocalizations in a csv file named realtime_vocalizations.csv.  
 Then, the detected vocalizations of a recording with our method can be compared to the detected vocalizations of the same recording using some other method, or to annotated vocalizations (ground truth). 
 This comparison can be done using the `syllables_comp.py`, which takes the WAV filename of the recording, and the names of the two csv files to be compared.
 
