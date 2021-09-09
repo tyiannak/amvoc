@@ -23,6 +23,7 @@ import pickle
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 import joblib
+import math 
 
 global fs
 global all_data
@@ -165,12 +166,14 @@ if __name__ == "__main__":
     input_file = args.input_file
     clf = args.classifier
     global fs, voc_file
-    voc_file = 'realtime_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
+    outstr = datetime.datetime.now().strftime("%Y_%m_%d_%I:%M%p")
     if input_file:
         fs, wav_signal = io.read_audio_file(input_file)
+        voc_file = 'realtime_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
     else:
         input_Fs = input("Input desired recording frequency (in Hz): ")
         fs = int(input_Fs)
+        voc_file = 'realtime_{}.csv'.format(outstr)
     signal.signal(signal.SIGINT, signal_handler)
     if clf:
         loaded_model = pickle.load(open(clf, 'rb'))
@@ -181,7 +184,6 @@ if __name__ == "__main__":
         pca = joblib.load('pca_' + clf[4:-4]+'.bin')
     all_data = []
     mid_buffer = []
-    outstr = datetime.datetime.now().strftime("%Y_%m_%d_%I:%M%p")
     
     if wav_signal is None:
         print("Microphone options on this device:")
@@ -216,16 +218,18 @@ if __name__ == "__main__":
             format = "%dh" % (len(block) / 2)
             shorts = struct.unpack(format, block)
             shorts_list = list(shorts)
+            len_wav_signal = math.inf
         else:
             shorts_list = wav_signal[int(count_bufs * buff_size * fs):
                                  int((count_bufs + 1) * buff_size * fs)].tolist()
+            len_wav_signal = len(wav_signal)
         # then normalize and convert to numpy array:
         x = np.double(shorts_list) / (2**15)
         seg_len = len(x)
         all_data += shorts_list
         mid_buffer += shorts_list
         if len(mid_buffer) >= int(mid_buffer_size * fs) or \
-                (int((count_bufs + 1) * buff_size * fs) > len(wav_signal) and
+                (int((count_bufs + 1) * buff_size * fs) > len_wav_signal and
                  len(mid_buffer)>0):
             
             # get spectrogram:
@@ -243,7 +247,6 @@ if __name__ == "__main__":
             # define feature sequence for vocalization detection
             f1 = np.argmin(np.abs(sp_freq - f_low))
             f2 = np.argmin(np.abs(sp_freq - f_high))
-
             spectral_energy, mean_values, max_values = \
                 ap.prepare_features(spectrogram[:,f1:f2])
             
@@ -331,7 +334,7 @@ if __name__ == "__main__":
             all_data = all_data[-len(mid_buffer):]
             mid_buffer = []
             count_mid_bufs += 1
-        if int((count_bufs + 1) * buff_size * fs) > len(wav_signal):
+        if int((count_bufs + 1) * buff_size * fs) > len_wav_signal:
             if last[2]==0: # if last USV from previous buffer isn't written in the file
                 write_last(to_print_last)
             break
