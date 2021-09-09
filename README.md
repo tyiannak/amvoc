@@ -29,16 +29,22 @@ GUI through the dash local address `http://127.0.0.1:8050/`
 ![execution example](screenshot.png "execution example")
 
 ## Vocalization detection
-If the user runs the `main.py`, the vocalizations are saved in a csv file named offline_vocalizations.csv.
-By running the `main_live.py`, the user can get the detected vocalizations in online mode (every 750msec). It just takes the WAV filename of the recording.
+If the user runs the `main.py`, the vocalizations are saved in a csv file named 
+`offline_vocalizations.csv`.
+By running the `main_live.py`, the user can get the detected vocalizations 
+in online mode (every 750msec).  
+It just takes the WAV filename of the recording to be processed (or no filename 
+if the signal is to berecorded from the soundcard).
 
 ```
 python3 main_live.py -i data/B148_test_small.wav
 ```
 
-If no filename is provided, then the signal is recorded during the running of the program. 
-If the user runs the `main_live.py`, the vocalizations are saved in a csv file named realtime_vocalizations.csv.  
-Then, the detected vocalizations of a recording with our method can be compared to the detected vocalizations of the same recording using some other method, or to annotated vocalizations (ground truth). 
+`main_live.py` saves the vocalizations in a csv file named `realtime_vocalizations.csv`.  
+
+### Method evaluation and comparison
+Then, the detected vocalizations of a recording with our method 
+can be compared to the detected vocalizations of the same recording using some other method, or to annotated vocalizations (ground truth). 
 This comparison can be done using the `syllables_comp.py`, which takes the WAV filename of the recording, and the names of the two csv files to be compared.
 
 ```
@@ -72,7 +78,8 @@ python3 syllables_comp.py -i data/vocalizations_evaluation/1/rec_1.wav -csv1 rea
 
 The evaluation metrics are displayed on terminal. 
 
-Semisupervised option:
+## Vocalization Semisupervised Representation
+
 The user can intervene in the re-training of the autoencoder used for feature extraction (Method 1) from USVs in order to explore new clustering alternatives, by imposing pairwise constraints between USVs. This is achieved by clicking on the "Retrain model" button on the GUI. Pairs of detected USVs will subsequently pop up and the user can declare whether or not they should belong to the same cluster by clicking "Yes" or "No" respectively, in the pop-up window. If they want to continue the retraining procedure without annotating more pairs, they can click on the "Stop" button, and if they want to completely interrupt the retraining, they can click on the "Cancel" button.
 
 After the retraining procedure is finished, the user can inspect the new clustering by clicking on "Update" button. 
