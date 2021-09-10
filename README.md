@@ -9,41 +9,59 @@ amvoc is a tool used to analyze mouse vocal communication through analyzing
 pip3 install -r requirements.txt
 ``` 
 
-## Execution
+
+## Offline functionality
 The main GUI for analyzing mouse sounds is in the `main.py`. 
-It takes the WAV filename in which the recording to analyze is stored.
-Also, the user has to declare whether or not they want to proceed with the annotation and clustering of each vocalization or just get the vocalizations detected for the given recording (option -c y if they want to continue or -c n in the opposite case). In case they want to proceed with the clustering, they can also define whether spectrogram of the whole input signal 
-should be displayed in the app (option -s). If the spectrogram is to be displayed
-(not recommended for large wavfiles),
-the user should choose one of the following options: -s 1 or -s True or -s true. Otherwise, they can skip this parameter.
+It takes the WAV filename in which the recording to analyze is stored. By analyzing, we basically mean detecting the USVs (ultrasonic vocalizations) produced by the mouse, after processing the computed (or cached) spectrogram of the recording. Start and end time of each USV are saved in a .csv file named "offline_filename.csv". 
+To just get the detected USVs, the user should run main.py as follows:
+
+```
+python3 main.py -i data/B148_test_small.wav -c n
+```
+Option -c declares whether the user would like to continue to the GUI, through the dash local address `http://127.0.0.1:8050/`. The purpose of the GUI is to visualize clusterings of the detected USVs of the recording. These clusterings are produced based on USVs' features, either hand-crafted or derived from a deep convolutional autoencoder, trained on a large number of USVs' spectrogram examples. The GUI offers the chance to inspect the spectrogram of the whole input signal, try various clustering parameters (clustering method, number of clusters, type of features to be used), evaluate the clustering and explore alternative clusterings after re-training the autoencoder used for the feature extraction through an active learning approach. 
+
+The main.py script can be run as:
 
 ```
 python3 main.py -i data/B148_test_small.wav -c y -s 1
 ```
-
-The basic GUI is build among dash, so after running the script, a 
-basic computation of the audio spectrogram is completed (or the spectrogram 
-is loaded from file if it has been already cached), and then one can use the 
-GUI through the dash local address `http://127.0.0.1:8050/`
+if the user wants to use the GUI and also the spectrogram of the whole signal displayed (not recommended for long recordings). This functionality is set by parameter -s, which is optional.
 
 ![execution example](screenshot.png "execution example")
 
-## Vocalization detection
-If the user runs the `main.py`, the vocalizations are saved in a csv file named 
-`offline_vocalizations.csv`.
-By running the `main_live.py`, the user can get the detected vocalizations 
-in online mode (every 750msec).  
-It just takes the WAV filename of the recording to be processed (or no filename 
-if the signal is to berecorded from the soundcard).
+### Clustering evaluation
+For the clustering evaluation, three performance metrics have been employed: Global annotations (score 1-5 regarding the whole clustering), Cluster-specific annotations (score 1-5 regarding each separate cluster) and Point annotations (approve/reject choice for a specific USV in the cluster to which it has been assigned).
+The assigned scores are saved in a .csv file named "annotations_eval_filename.csv". 
+
+### Vocalization Semisupervised Representation
+
+The user can intervene in the re-training of the autoencoder used for feature extraction (Deep) from USVs in order to explore new clustering alternatives, by imposing pairwise constraints between USVs. This is achieved by clicking on the "Retrain model" button on the GUI. Pairs of detected USVs will subsequently pop up and the user can declare whether or not they should belong to the same cluster by clicking "Yes" or "No" respectively, in the pop-up window. If they want to continue the retraining procedure without annotating more pairs, they can click on the "Stop" button, and if they want to completely interrupt the retraining, they can click on the "Cancel" button.
+
+After the re-training procedure is finished, the user can inspect the new clustering by clicking on "Update" button. 
+
+The option "Save clustering" gives the opportunity to save the cluster label of each USV, the autoencoder model used as "model_fileName_clusteringMethod_numClusters_featureType" and also train a classifier, saved as "clf_fileName_clusteringMethod_numClusters_featureType", using USV representations and their corresponding labels as ground-truth data. 
+
+![execution example](screenshot3.png "execution example 2")
+
+## Online functionality
+AMVOC also includes an online functionality, i.e. the chance to detect USVs while recording the mouse vocal activity. This is achieved by running the main_live.py script, which detects USVs in online mode (every 750 ms) and saves their start and end times in a .csv file named "realtime_filename.csv". It just takes the WAV filename of the recording to be processed (or no filename 
+if the signal is to be recorded from the soundcard).
 
 ```
 python3 main_live.py -i data/B148_test_small.wav
 ```
 
-`main_live.py` saves the vocalizations in a csv file named `realtime_vocalizations.csv`.  
+Real-time classification of detected USVs is also provided, by using a classifier trained with clustering data (see above in `Vocalization Semisupervised Representation`) and the model used for feature extraction from this data. This can be done by first changing the "model" parameter in the config.json with the name of the new model and run main_live.py as:
 
-### Method evaluation and comparison
-Then, the detected vocalizations of a recording with our method 
+```
+python3 main_live.py -i data/B148_test_small.wav -c clf_B148_test_small_agg_6_deep
+
+```
+The name of the classifier in the line above is an example. 
+  
+
+## Vocalization detection evaluation and comparison
+The detected vocalizations of a recording with our method 
 can be compared to the detected vocalizations of the same recording using some other method, or to annotated vocalizations (ground truth). 
 This comparison can be done using the `syllables_comp.py`, which takes the WAV filename of the recording, and the names of the two csv files to be compared.
 
@@ -78,20 +96,3 @@ python3 syllables_comp.py -i data/vocalizations_evaluation/1/rec_1.wav -csv1 rea
 
 The evaluation metrics are displayed on terminal. 
 
-## Vocalization Semisupervised Representation
-
-The user can intervene in the re-training of the autoencoder used for feature extraction (Method 1) from USVs in order to explore new clustering alternatives, by imposing pairwise constraints between USVs. This is achieved by clicking on the "Retrain model" button on the GUI. Pairs of detected USVs will subsequently pop up and the user can declare whether or not they should belong to the same cluster by clicking "Yes" or "No" respectively, in the pop-up window. If they want to continue the retraining procedure without annotating more pairs, they can click on the "Stop" button, and if they want to completely interrupt the retraining, they can click on the "Cancel" button.
-
-After the retraining procedure is finished, the user can inspect the new clustering by clicking on "Update" button. 
-
-The option "Save clustering" gives the opportunity to save the cluster label of each USV, the new autoencoder model as "model_fileName_clusteringMethod_numClusters_featureType" and also train a classifier, saved as "clf_fileName_clusteringMethod_numClusters_featureType", using USV representations and their corresponding labels as ground-truth data. 
-
-![execution example](screenshot3.png "execution example 2")
-
-This classifier, along with the model, can be used for the real-time classification of detected USVs in the main_live.py. This can be done by first changing the "model" parameter in the config.json with the name of the new model and run main_live.py as:
-
-```
-python3 main_live.py -i data/B148_test_small.wav -c clf_B148_test_small_agg_6_deep
-
-```
-The name of the classifier in the line above is an example. 
