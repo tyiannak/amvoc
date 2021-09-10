@@ -214,7 +214,7 @@ if __name__ == "__main__":
     while 1:  # for each recorded window (until ctr+c) is pressed
         if wav_signal is None:
             # get current block and convert to list of short ints,
-            block = stream.read(int(fs * buff_size))
+            block = stream.read(int(fs * buff_size), exception_on_overflow=False)
             format = "%dh" % (len(block) / 2)
             shorts = struct.unpack(format, block)
             shorts_list = list(shorts)
