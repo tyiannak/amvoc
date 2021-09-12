@@ -12,28 +12,49 @@ pip3 install -r requirements.txt
 
 ## Offline functionality
 The main GUI for analyzing mouse sounds is in the `main.py`. 
-It takes the WAV filename in which the recording to analyze is stored. By analyzing, we basically mean detecting the USVs (ultrasonic vocalizations) produced by the mouse, after processing the computed (or cached) spectrogram of the recording. Start and end time of each USV are saved in a .csv file named "offline_filename.csv". 
+It takes the WAV filename in which the recording to analyze is stored. 
+By analyzing, we basically mean detecting the USVs (ultrasonic vocalizations) 
+produced by the mouse, after processing the computed (or cached) spectrogram of 
+the recording. Start and end time of each USV are saved in a .csv file named 
+"offline_filename.csv". 
 To just get the detected USVs, the user should run main.py as follows:
 
 ```
 python3 main.py -i data/B148_test_small.wav -c n
 ```
-Option -c declares whether the user would like to continue to the GUI, through the dash local address `http://127.0.0.1:8050/`. The purpose of the GUI is to visualize clusterings of the detected USVs of the recording. These clusterings are produced based on USVs' features, either hand-crafted or derived from a deep convolutional autoencoder, trained on a large number of USVs' spectrogram examples. The GUI offers the chance to inspect the spectrogram of the whole input signal, try various clustering parameters (clustering method, number of clusters, type of features to be used), evaluate the clustering and explore alternative clusterings after re-training the autoencoder used for the feature extraction through an active learning approach. 
+Option -c declares whether the user would like to continue to the GUI, 
+through the dash local address `http://127.0.0.1:8050/`. The purpose of the GUI 
+is to visualize clusterings of the detected USVs of the recording. These
+ clusterings are produced based on USVs' features, either 
+ hand-crafted or derived from a deep convolutional autoencoder, 
+ trained on a large number of USVs' spectrogram examples. 
+ One can use the GUI to (a) inspect the spectrogram of the whole input signal, 
+ (b) try various clustering parameters (clustering method, number of clusters, 
+ type of features to be used), 
+ (c) evaluate the clustering and (d) explore alternative clusterings 
+ after re-training the autoencoder used for the feature extraction 
+ through an active learning approach. 
 
-The main.py script can be run as:
+One can run the `main.py` script as follow:
 
 ```
 python3 main.py -i data/B148_test_small.wav -c y -s 1
 ```
-if the user wants to use the GUI and also the spectrogram of the whole signal displayed (not recommended for long recordings). This functionality is set by parameter -s, which is optional.
+if the user wants to use the GUI and also the spectrogram of the whole signal 
+displayed (not recommended for long recordings). 
+This functionality is set by parameter -s, which is optional.
 
 ![execution example](screenshot.png "execution example")
 
 ### Clustering evaluation
-For the clustering evaluation, three performance metrics have been employed: Global annotations (score 1-5 regarding the whole clustering), Cluster-specific annotations (score 1-5 regarding each separate cluster) and Point annotations (approve/reject choice for a specific USV in the cluster to which it has been assigned).
-The assigned scores are saved in a .csv file named "annotations_eval_filename.csv". 
+For the clustering evaluation, three performance metrics have been employed: 
+Global annotations (score 1-5 regarding the whole clustering), 
+Cluster-specific annotations (score 1-5 regarding each separate cluster) 
+and Point annotations (approve/reject choice for a specific USV in the 
+cluster to which it has been assigned).
+The assigned scores are saved in a .csv file named `annotations_eval_filename.csv`. 
 
-### Vocalization Semisupervised Representation
+### Semisupervised Representation of Mice Vocalizations
 
 The user can intervene in the re-training of the autoencoder used for feature extraction (Deep) from USVs in order to explore new clustering alternatives, by imposing pairwise constraints between USVs. This is achieved by clicking on the "Retrain model" button on the GUI. Pairs of detected USVs will subsequently pop up and the user can declare whether or not they should belong to the same cluster by clicking "Yes" or "No" respectively, in the pop-up window. If they want to continue the retraining procedure without annotating more pairs, they can click on the "Stop" button, and if they want to completely interrupt the retraining, they can click on the "Cancel" button.
 
