@@ -240,48 +240,54 @@ def get_layout():
                 ) 
         ),
         # full spectrogram of the signal revealed on button press
-        dbc.Collapse(
-            [
-                dbc.Row(
-                    [
-                        dbc.Col(
-                            html.Label(
-                                id="label_sel_start",
-                                children="Selected start",
-                                style={'textAlign': 'center',
-                                       'color': colors['text']}),
-                            width=1,
-                        ),
-                        dbc.Col(
-                            html.Label(
-                                id="label_sel_end",
-                                children="Selected end",
-                                style={'textAlign': 'center',
-                                       'color': colors['text']}),
-                            width=1,
-                        ),
-                        dbc.Col(
-                            html.Label(
-                                id='label_class',
-                                children="Class",
-                                style={'textAlign': 'center',
-                                       'color': colors['text']}),
-                            width=1,
-                        )
-                    ], className="h-10"),
+        dcc.Loading(
+            dbc.Collapse(
+                [
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                html.Label(
+                                    id="label_sel_start",
+                                    children="Selected start",
+                                    style={'textAlign': 'center',
+                                           'color': colors['text']}),
+                                width=1,
+                            ),
+                            dbc.Col(
+                                html.Label(
+                                    id="label_sel_end",
+                                    children="Selected end",
+                                    style={'textAlign': 'center',
+                                           'color': colors['text']}),
+                                width=1,
+                            ),
+                            dbc.Col(
+                                html.Label(
+                                    id='label_class',
+                                    children="Class",
+                                    style={'textAlign': 'center',
+                                           'color': colors['text']}),
+                                width=1,
+                            )
+                        ], className="h-10"),
 
-                # Main heatmap
-                dbc.Row(
-                    dbc.Col(
-                        dcc.Graph(id='heatmap1'),
-                        width=12,
-                        style={"height": "100%", "background-color": "white"}
-                    ),
-                )
-            ],
-            is_open=False,
-            id="spectrogram_collapse",
-        ),
+                    # Main heatmap
+                    dbc.Row(
+                        dbc.Col(
+                            dcc.Graph(id='heatmap1'),
+                            width=12,
+                            style={"height": "100%", "background-color": "white"}
+                        ),
+                    )
+                ],
+                is_open=False,
+                id="spectrogram_collapse"
+            ),
+            id="loading_spect",
+            type="default"
+
+        )
+        ,
         dbc.Row([dbc.Col(
                 dcc.Dropdown(
                     id='dropdown_cluster',
