@@ -67,9 +67,10 @@ def parse_arguments():
                         help="File")
     parser.add_argument("-c", "--continue_", required=True, nargs=None,
                         help="Decision")
-    parser.add_argument("-s", "--spectrogram", required=False, nargs=None,
-                        help="Condition")
+    # parser.add_argument("-s", "--spectrogram", required=False, nargs=None,
+    #                     help="Condition")
     return parser.parse_args()
+
 
 def get_shapes(segments, freq1, freq2):
     # create rectangles to draw syllables
@@ -82,9 +83,11 @@ def get_shapes(segments, freq1, freq2):
         shapes1.append(s1)
     return shapes1
 
+
 def save_ckp(state, checkpoint_dir):
     f_path = checkpoint_dir / 'checkpoint.pt'
     torch.save(state, f_path)
+
 
 def load_ckp(checkpoint_fpath, model, optimizer):
     checkpoint = torch.load(checkpoint_fpath)
@@ -92,7 +95,8 @@ def load_ckp(checkpoint_fpath, model, optimizer):
     optimizer.load_state_dict(checkpoint['optimizer'])
     return model, optimizer
 
-def get_layout(spec=False):
+
+def get_layout():
 
     seg_limits, thres_sm = ap.get_syllables(spectral_energy,
                                                means,
@@ -184,108 +188,99 @@ def get_layout(spec=False):
     
 
     @app.callback(
-    [
-        Output("spectogram-collapse", "is_open"), 
-        Output("label_sel_start_collapse", "is_open"),
-        Output("label_sel_end_collapse", "is_open"),
-        Output("label_class_collapse", "is_open")
-    ],
-    [Input("both", "n_clicks")],
-    [State("spectogram-collapse", "is_open") ],
+        [
+            Output("heatmap1", "figure"),
+            Output("spectrogram_collapse", "is_open")
+        ],
+        [Input("show_spect", "n_clicks")],
+        [State("spectrogram_collapse", "is_open")],
     )
-    def toggle_left(n_both, is_open):
-        if  n_both:
-            return 4*[not is_open]
-        return 4*[is_open]
+    def show_spectrogram_panel(n_clicks, is_open):
+        figure = {}
+        if n_clicks:
+            # plot figure every time show spectrogram button is pressed
+            if not is_open:
+                figure = {
+                        'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
+                                            y=sp_freq[::spec_resize_ratio_freq],
+                                            z=clean_spectrogram[::spec_resize_ratio_time, ::spec_resize_ratio_freq].T,
+                                            name='F', colorscale='Jet',
+                                            showscale=False)],
+                        'layout': go.Layout(
+                            title='Spectrogram of the signal',
+                            margin=dict(l=55, r=20, b=120, t=40, pad=4),
+                            xaxis=dict(title='Time (Sec)'),
+                            yaxis=dict(title='Freq (Hz)'),
+                            shapes=shapes1 + shapes2 + shapes3)
+                        }
+            return figure, not is_open
+        return figure, is_open
 
 
-    # if spec:
+
     layout = dbc.Container([
         # Title
-        dbc.Row(dbc.Col(html.H2("AMVOC", style={'textAlign': 'center',
-                                        'color': colors['text'], 'marginBottom': 30, 'marginTop':30}))),
+        dbc.Row(
+            dbc.Col(
+                html.H2("AMVOC", style={
+                                        'textAlign': 'center',
+                                        'color': colors['text'],
+                                        'marginBottom': 30,
+                                        'marginTop':30
+                                        }
+                        )
+            )
+        ),
 
         dbc.Row(
                 dbc.Col(
-                    html.Button('Show Spectrogram', id='both', n_clicks=0, style={'marginBottom': 30} ),  
+                    html.Button('Show Spectrogram', id='show_spect', n_clicks=0, style={'marginBottom': 30}),
                     width=2,
                     style={'display': 'block'}
                 ) 
         ),
-        # Selected segment controls
-        dbc.Row(
+        # full spectrogram of the signal revealed on button press
+        dbc.Collapse(
             [
-                dbc.Col(
-                    dbc.Collapse(
-                        html.Label(
-                            id="label_sel_start", 
-                            children="Selected start",
-                            style={'textAlign': 'center',
-                                    'color': colors['text']}),
-                        id="label_sel_start_collapse",
-                        is_open=False,
-                    ),
-                    width=1,
-                ),
-                dbc.Col(
-                    dbc.Collapse(
-                        html.Label(
-                            id="label_sel_end", 
-                            children="Selected end",
-                            style={'textAlign': 'center',
-                                'color': colors['text']}),
-                        id="label_sel_end_collapse",
-                        is_open=False
-                    ),
-                    width=1,
-                ),
-                dbc.Col(
-                    dbc.Collapse(
-                        html.Label(
-                            id='label_class',
-                            children="Class",
-                            style={'textAlign': 'center',
-                                'color': colors['text']}),
-                    id="label_class_collapse",
-                    is_open=False
-                    ),
-                    width=1,
-                )
-            
-            ], className="h-10"),
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            html.Label(
+                                id="label_sel_start",
+                                children="Selected start",
+                                style={'textAlign': 'center',
+                                       'color': colors['text']}),
+                            width=1,
+                        ),
+                        dbc.Col(
+                            html.Label(
+                                id="label_sel_end",
+                                children="Selected end",
+                                style={'textAlign': 'center',
+                                       'color': colors['text']}),
+                            width=1,
+                        ),
+                        dbc.Col(
+                            html.Label(
+                                id='label_class',
+                                children="Class",
+                                style={'textAlign': 'center',
+                                       'color': colors['text']}),
+                            width=1,
+                        )
+                    ], className="h-10"),
 
-        # Main heatmap
-        dbc.Row(
-            dbc.Col(
-                dbc.Collapse(
-                    dcc.Graph(
-                        id='heatmap1',
-                        figure={
-                                'data': [go.Heatmap(x=sp_time[::spec_resize_ratio_time],
-                                                    y=sp_freq[::spec_resize_ratio_freq],
-                                                    z=clean_spectrogram[::spec_resize_ratio_time,
-                                                    ::spec_resize_ratio_freq].T,
-                                                    name='F', colorscale='Jet',
-                                                    showscale=False)],
-                                'layout': go.Layout(
-                                    title = 'Spectrogram of the signal',
-                                    margin=dict(l=55, r=20, b=120, t=40, pad=4),
-                                    xaxis=dict(title='Time (Sec)'),
-                                    yaxis=dict(title='Freq (Hz)'),
-                                    shapes=shapes1 + shapes2 + shapes3)
-                                }
+                # Main heatmap
+                dbc.Row(
+                    dbc.Col(
+                        dcc.Graph(id='heatmap1'),
+                        width=12,
+                        style={"height": "100%", "background-color": "white"}
                     ),
-                    
-                    id="spectogram-collapse",
-                    is_open=False,
-                        
-                ), 
-                width=12,
-                style={"height": "100%", "background-color": "white"}
-                
-            ),
-            # className="h-50",
-            #style={"display": "none"}
+                )
+            ],
+            is_open=False,
+            id="spectrogram_collapse",
         ),
         dbc.Row([dbc.Col(
                 dcc.Dropdown(
@@ -452,176 +447,7 @@ def get_layout(spec=False):
             style={'display': 'none'}
             )
     ], style={"height": "100vh"})
-    # else:
-    #     layout = dbc.Container([
-    #         # Title
-    #         dbc.Row(dbc.Col(html.H2("AMVOC", style={'textAlign': 'center',
-    #                                         'color': colors['text'], 'marginBottom': 30, 'marginTop':30}))),
-    #         dbc.Row([dbc.Col(
-    #                 dcc.Dropdown(
-    #                     id='dropdown_cluster',
-    #                     options=[
-    #                         {'label': 'Agglomerative', 'value': 'agg'},
-    #                         {'label': 'Birch', 'value': 'birch'},
-    #                         {'label': 'Gaussian Mixture', 'value': 'gmm'},
-    #                         {'label': 'K-Means', 'value': 'kmeans'},
-    #                         {'label': 'Mini-Batch K-Means', 'value': 'mbkmeans'},
-    #                         # {'label': 'Spectral', 'value': 'spec'},
-    #                     ], value='agg'
-    #                 ),
-    #                 width=2,
-    #             ),
-    #             dbc.Col(
-    #                 dcc.Dropdown(
-    #                     id='dropdown_n_clusters',
-    #                     options=[{'label': i, 'value': i} for i in range(2,11)
-    #                     ], value=2
-    #                 ),
-    #                 width=2,
-    #             ),
-    #             dbc.Col(
-    #                 dcc.Dropdown(
-    #                     id='dropdown_feats_type',
-    #                     options=[
-    #                         {'label': 'Deep', 'value': 'deep'},
-    #                         {'label': 'Simple', 'value': 'simple'},
-    #                     ], value='deep'
-    #                 ),
-    #                 width=2,
-    #             ),
-    #             dbc.Col(
-    #                 html.Button('Save clustering', id='btn_f', n_clicks=0),  
-    #                 width=2,
-    #                 style={'display': 'block'}
-    #             ),
-    #             dbc.Col(
-    #                 html.Button('Retrain model', id='btn_r', n_clicks=0),  
-    #                 width=2,
-    #                 style={'display': 'block'}
-    #             ),
-                
-    #             dbc.Col(
-    #                 html.Button('Update', id='btn_s', n_clicks=0),  
-    #                 width=2,
-    #                 style={'display': 'block'}
-    #             ),
-    #         #     html.Table([
-    #         #     html.Tr([html.Td(['Silhouette score']), html.Td(id='silhouette')]),
-    #         #     html.Tr([html.Td(['Calinski-Harabasz score']), html.Td(id='cal-har')]),
-    #         #     html.Tr([html.Td(['Davies-Bouldin score']), html.Td(id='dav-bould')]),
-    #         # ]),
-    #         ]),
-    #         dbc.Row([dbc.Col(html.Div(children = "Global cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
-    #                 dbc.Col(html.Div(children = "Specific cluster annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
-    #                 dbc.Col(html.Div(children = "Point annotations"), width=3, style={'marginBottom': 20, 'marginTop': 20}),
-    #         ]),
-    #         dbc.Row([
-    #         dbc.Col(
-    #                 dcc.Dropdown(
-    #                     id='dropdown_total_cluster_annotation',
-    #                     options=[
-    #                         {'label': 'No Validation', 'value': 'no'}]+
-    #                         [{'label': i, 'value': i} for i in np.arange(1,6)], value = 'no'
-    #                 ),
-    #                 width=2,
-    #                 style={'display': 'block'}
-    #             ),
-    #         dbc.Col(     
-    #             html.Button('Submit', id='btn_3', n_clicks=0),  
-    #                 width=1,
-    #                 style={'display': 'block'}
-    #         ),
-            
-    #         dbc.Col(
-    #                 dcc.Dropdown(
-    #                     id='dropdown_cluster_annotation',
-    #                     options=[
-    #                         {'label': 'No Validation', 'value': 'no'}]+
-    #                         [{'label': i, 'value': i} for i in np.arange(1,6)], value = 'no'
-    #                 ),
-    #                 width=2,
-    #                 style={'display': 'block'}
-    #             ),
-    #         dbc.Col(     
-    #             html.Button('Submit', id='btn_2', n_clicks=0),  
-    #                 width=1,
-    #                 style={'display': 'block'}
-    #         ),
-    #         dbc.Col(
-    #                 dcc.Dropdown(
-    #                     id='dropdown_point_annotation',
-    #                     options=[
-    #                         {'label': 'No Validation', 'value': 'no'},
-    #                         {'label': 'Approve', 'value': 'approve'},
-    #                         {'label': 'Reject', 'value': 'reject'},
-    #                     ], value = 'no'
-    #                 ),
-    #                 width=2,
-    #                 style={'display': 'block'}
-    #             ),
-    #         dbc.Col(     
-    #             html.Button('Submit', id='btn_1', n_clicks=0),  
-    #                 width=1,
-    #                 style={'display': 'block'}
-    #         ),
-    #         ]),
-    #         dbc.Row([dbc.Col(
-    #             dcc.Graph(id='cluster_graph'), width = 9, md = 8, style={'marginLeft': 0}),
-    #              dbc.Col(
-    #                 html.Div(children=[html.Div([ DataTable(id='total_annotation', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},
-    #                 columns = [{'id': 'Global annotation', 'name': 'Global annotation'} ])],style={'marginBottom':10}),
-    #                 DataTable(id='cluster_table', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},columns = [{'id': column, 'name': column} for column in ['Clusters', 'Cluster annotation', 'Annotated points']])]),
-    #                 style = {'marginTop':10, 'marginLeft': 5, 'marginRight': 0}, width ='25%', 
-    #         ), 
-    #         ],justify='start'),
-    #         dbc.Row([dbc.Col(
-    #         dcc.Graph(id='spectrogram', hoverData = {'points': [{'pointIndex': 0}]}),width = 6, style={'marginTop': 20}
-    #         ), 
-    #         dbc.Col(
-    #             dcc.Graph(id='contour_plot', hoverData = {'points': [{'pointIndex': 0}]}), width = 6, style={'marginTop': 20}
-    #         )]),
-    #         # these are intermediate values to be used for sharing content
-    #         # between callbacks
-    #         # (see here https://dash.plotly.com/sharing-data-between-callbacks)
-    #         dbc.Row(id='intermediate_val_syllables', style={'display': 'none'}),
-    #         dbc.Row(id='intermediate_val_total_clusters', style={'display': 'none'}),
-    #         dbc.Row(id='intermediate_val_clusters', style={'display': 'none'}),
-    #         dbc.Row(id='clustering_info', style={'display': 'none'}),
-    #         dbc.Row(id='save_clustering', style={'display':'none'}),
-    #         dbc.Row(id='retrain_model', style={'display':'none'}),
-    #         dbc.Row(id='retrain_const', style={'display':'none'}),
-    #         dbc.Row(id='retrain_batch', style={'display':'none'}),
-    #         dbc.Row(id='train_after_stop', style={'display':'none'}),
-    #         dbc.Row(id='update', style={'display':'none'}),
-    #         dbc.Row(id='pairs', style={'display':'none'}),
-    #         dbc.Row(html.Div(
-    #                     [
-    #                         # dbc.Button("Retrain model", id="btn_r", n_clicks=0),
-    #                         dbc.Modal(
-    #                             [
-    #                                 dbc.ModalHeader("Should the two vocalizations belong to the same cluster?"),
-    #                                 dbc.ModalBody(
-    #                                     # dbc.Col(
-    #                                     dcc.Graph(id='pw_specs')),
-    #                                     # dcc.Graph(id='pw_specs'), width = 9, md = 8, style={'marginLeft': 0})),
-    #                                 dbc.ModalFooter(
-    #                                     dbc.Row([
-    #                                         dbc.Col(html.Button("Yes", id="b_y", className="ml-auto", n_clicks=0)),
-    #                                         dbc.Col(html.Button("No", id="b_n", className="ml-auto", n_clicks=0)),
-    #                                         dbc.Col(html.Button("Stop", id="b_stop", className="ml-auto", n_clicks=0)),
-    #                                         dbc.Col(html.Button("Cancel", id="b_cancel", className="ml-auto", n_clicks=0))]
-    #                                     )   
-    #                                     ),
-    #                             ],
-    #                             id="modal",
-    #                             backdrop='static',
-    #                             is_open=False,
-    #                         ),
-    #                     ]
-    #                 ),
-    #             style={'display': 'none'}
-    #             )
-    #     ], style={"height": "100vh"})
+
     return layout
 
 
@@ -660,10 +486,7 @@ if __name__ == "__main__":
     )
     clean_spectrogram = ap.clean_spectrogram(spectrogram)
     
-    if args.spectrogram=='True' or args.spectrogram=='true' or args.spectrogram=='1':
-        app.layout = get_layout(True)
-    else:
-        app.layout = get_layout()
+    app.layout = get_layout()
 
 
     """
