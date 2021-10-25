@@ -21,6 +21,10 @@ import utils
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 from sklearn.manifold import TSNE
+import pandas as pd
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from scipy.spatial import distance
 from scipy.special import erf, erfc
 import matplotlib
@@ -37,7 +41,6 @@ import training_task as tr_t
 import umap
 import joblib
 import os
-import torch
 from conv_autoencoder import ConvAutoencoder
 
 colors = {'background': '#111111', 'text': '#7FDBFF'}
@@ -135,13 +138,13 @@ def get_layout():
 
     shapes1 = get_shapes(seg_limits, f_low, f_high)
     shapes2, shapes3 = [], []
-    
+
     for iS in range(len(seg_limits)):
         f_points_all[0] += f_points[iS][0]
         f_points_all[1] += f_points[iS][1]
         f_points_init_all[0] += f_points_init[iS][0]
         f_points_init_all[1] += f_points_init[iS][1]
-    
+
     for x, y in zip(f_points_all[0], f_points_all[1]):
         s1 = {
             'type': 'rect',
@@ -185,7 +188,7 @@ def get_layout():
     joblib.dump(selector, './dash/vt_selector.bin', compress=True)
     joblib.dump(scaler, './dash/std_scaler.bin', compress=True)
     joblib.dump(pca, './dash/pca.bin', compress=True)
-    
+
 
     @app.callback(
         [
@@ -237,7 +240,7 @@ def get_layout():
                     html.Button('Show Spectrogram', id='show_spect', n_clicks=0, style={'marginBottom': 30}),
                     width=2,
                     style={'display': 'block'}
-                ) 
+                )
         ),
         # full spectrogram of the signal revealed on button press
         dcc.Loading(
@@ -321,17 +324,17 @@ def get_layout():
                 width=2,
             ),
             dbc.Col(
-                html.Button('Save clustering', id='btn_f', n_clicks=0),  
+                html.Button('Save clustering', id='btn_f', n_clicks=0),
                 width=2,
                 style={'display': 'block'}
             ),
             dbc.Col(
-                html.Button('Retrain model', id='btn_r', n_clicks=0),  
+                html.Button('Retrain model', id='btn_r', n_clicks=0),
                 width=2,
                 style={'display': 'block'}
             ),
             dbc.Col(
-                html.Button('Update', id='btn_s', n_clicks=0),  
+                html.Button('Update', id='btn_s', n_clicks=0),
                 width=2,
                 style={'display': 'block'}
             ),
@@ -356,12 +359,12 @@ def get_layout():
                 width=2,
                 style={'display': 'block'}
             ),
-        dbc.Col(     
-            html.Button('Submit', id='btn_3', n_clicks=0),  
+        dbc.Col(
+            html.Button('Submit', id='btn_3', n_clicks=0),
                 width=1,
                 style={'display': 'block'}
         ),
-        
+
         dbc.Col(
                 dcc.Dropdown(
                     id='dropdown_cluster_annotation',
@@ -372,8 +375,8 @@ def get_layout():
                 width=2,
                 style={'display': 'block'}
             ),
-        dbc.Col(     
-            html.Button('Submit', id='btn_2', n_clicks=0),  
+        dbc.Col(
+            html.Button('Submit', id='btn_2', n_clicks=0),
                 width=1,
                 style={'display': 'block'}
         ),
@@ -389,8 +392,8 @@ def get_layout():
                 width=2,
                 style={'display': 'block'}
             ),
-        dbc.Col(     
-            html.Button('Submit', id='btn_1', n_clicks=0),  
+        dbc.Col(
+            html.Button('Submit', id='btn_1', n_clicks=0),
                 width=1,
                 style={'display': 'block'}
         ),
@@ -401,13 +404,13 @@ def get_layout():
                 html.Div(children=[html.Div([ DataTable(id='total_annotation', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},
                 columns = [{'id': 'Global annotation', 'name': 'Global annotation'} ])],style={'marginBottom':10}),
                 DataTable(id='cluster_table', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},columns = [{'id': column, 'name': column} for column in ['Clusters', 'Cluster annotation', 'Annotated points']])]),
-                style = {'marginTop':10, 'marginLeft': 5, 'marginRight':0}, width ='25%', 
-        ), 
+                style = {'marginTop':10, 'marginLeft': 5, 'marginRight':0}, width ='25%',
+        ),
         ],justify='start'),
         dbc.Row([dbc.Col(
         dcc.Graph(id='spectrogram', hoverData = {'points': [{'pointIndex': 0}]}),width = 6, style= {'marginTop': 30}
-        
-        ), 
+
+        ),
         dbc.Col(
             dcc.Graph(id='contour_plot', hoverData = {'points': [{'pointIndex': 0}]}), width = 6, style={'marginTop': 30}
         )]),
@@ -441,7 +444,7 @@ def get_layout():
                                         dbc.Col(html.Button("No", id="b_n", className="ml-auto", n_clicks=0)),
                                         dbc.Col(html.Button("Stop", id="b_stop", className="ml-auto", n_clicks=0)),
                                         dbc.Col(html.Button("Cancel", id="b_cancel", className="ml-auto", n_clicks=0))]
-                                    )   
+                                    )
                                     ),
                             ],
                             id="modal",
@@ -451,9 +454,20 @@ def get_layout():
                     ]
                 ),
             style={'display': 'none'}
-            )
-    ], style={"height": "100vh"})
+            ),
 
+            dbc.Row(
+                    [
+                     dbc.Col(dcc.Graph(
+                         id='clusters_temporal_scatter',
+                         hoverData={'points': [{'pointIndex': 0}]}),
+                         width=6,
+                         style={'marginTop': 10})
+                    ]
+            ),
+
+
+        ], style={"height": "100vh"})
     return layout
 
 
@@ -535,7 +549,8 @@ if __name__ == "__main__":
                
     @app.callback(
         [Output('cluster_graph', 'figure'),
-         Output('clustering_info', 'data'),],
+         Output('clustering_info', 'data'),
+         Output('clusters_temporal_scatter', 'figure') ],
         [Input('dropdown_cluster', 'value'),
          Input('dropdown_n_clusters', 'value'),
          Input('dropdown_feats_type', 'value'), 
@@ -577,17 +592,30 @@ if __name__ == "__main__":
         if feats_type == 'simple':
             feats = np.load('./dash/feats_simple.npy')
             feats_2d = np.load('./dash/feats_2d_s.npy')
-        elif feats_type== 'deep':
+        elif feats_type == 'deep':
             feats = np.load('./dash/feats_deep.npy')
             feats_2d = np.load('./dash/feats_2d_d.npy')
         y, scores = ar.clustering(method, n_clusters, feats)
-            # labels = y
+
         np.save('./dash/labels.npy', y)
         # np.save('./dash/centers.npy', centers)
+        colors = [
+            '#d62728',  # brick red
+            '#2ca02c',  # cooked asparagus green
+            '#1f77b4',  # muted blue
+            '#ff7f0e',  # safety orange
+            '#9467bd',  # muted purple
+            '#8c564b',  # chestnut brown
+            '#e377c2',  # raspberry yogurt pink
+            '#7f7f7f',  # middle gray
+            '#bcbd22',  # curry yellow-green
+            '#17becf'  # blue-teal
+        ]
+
         fig = go.Figure(data = go.Scatter(x = feats_2d[:, 0],
                                             y = feats_2d[:, 1], name='',
                     mode='markers',
-                    marker=go.scatter.Marker(color=y,
+                    marker=go.scatter.Marker( color= [colors[i] for i in y],
                                                 size=[7.5
                                                     for i in range(len(y))],
                                                 line=dict(width=2,
@@ -608,6 +636,40 @@ if __name__ == "__main__":
             # "clustering": labels 
         }
         fig = fig.to_dict()
+
+        seg_limits = np.load('./dash/seg_limits.npy')
+        df = pd.DataFrame(seg_limits, columns=['T1', 'T2'])
+        df['cluster_id'] = y
+
+        temporal_fig = go.Figure(
+            data=go.Scatter(
+                x=df['T1'],
+                y=df['cluster_id'],
+                name='',
+                mode='markers',
+
+                marker=go.scatter.Marker(
+                    color=[colors[i] for i in y],
+                    size=[200 * (df['T2'].loc[i] - df['T1'].loc[i]) for i in range(len(y))],
+                    #                                                            line=dict(width=2,
+                    #                                               color=['White' for i in range(len(y))]),
+                    opacity=1.
+                ),
+                text=['cluster {}, duration = {}'.format(y[i], df['T2'].loc[i] - df['T1'].loc[i]) for i in
+                      range(len(y))],
+                showlegend=False
+            ),
+            layout=go.Layout(
+                title='Clustered Syllables',
+                xaxis=dict(title='Time(Sec)'),
+                yaxis=dict(title='Syllables'),
+                margin=dict(l=0, r=5),
+            )
+        )
+        temporal_fig = temporal_fig.to_dict()
+
+
+
         with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
             loaded_data=json.load(infile)
         for annotation in loaded_data['point_annotations']:
@@ -618,7 +680,7 @@ if __name__ == "__main__":
                     fig['data'][0]['marker']['line']['color'][index]='Green'
                 else:
                     fig['data'][0]['marker']['line']['color'][index]='Red'
-        return fig, data
+        return fig, data, temporal_fig
 
     @app.callback(
         Output('save_clustering', 'children'),
@@ -1064,11 +1126,19 @@ if __name__ == "__main__":
 
     @app.callback(
         Output('spectrogram', 'figure'),
-        [Input('cluster_graph', 'hoverData')],
+        [
+            Input('cluster_graph', 'hoverData'),
+            Input('clusters_temporal_scatter', 'hoverData')
+        ],
     )
-    def display_hover_data(hoverData):
-        if hoverData:
-            index = hoverData['points'][0]['pointIndex']
+    def display_hover_data(hoverData1, hoverData2):
+
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+
+        if changed_id == 'cluster_graph.hoverData':
+            index = hoverData1['points'][0]['pointIndex']
+        elif changed_id == 'clusters_temporal_scatter.hoverData':
+            index = hoverData2['points'][0]['pointIndex']
         else:
             index = 0
         segments=np.load('./dash/segments.npy')
@@ -1086,11 +1156,19 @@ if __name__ == "__main__":
 
     @app.callback(
         Output('contour_plot', 'figure'),
-        [Input('cluster_graph', 'hoverData')],
+        [
+            Input('cluster_graph', 'hoverData'),
+            Input('clusters_temporal_scatter', 'hoverData')
+        ],
     )
-    def display_hover_data(hoverData):
-        if hoverData:
-            index = hoverData['points'][0]['pointIndex']
+    def display_hover_data(hoverData1, hoverData2):
+
+        changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+
+        if changed_id == 'cluster_graph.hoverData':
+            index = hoverData1['points'][0]['pointIndex']
+        elif changed_id == 'clusters_temporal_scatter.hoverData':
+            index = hoverData2['points'][0]['pointIndex']
         else:
             index = 0
         sp_freq = np.load('./dash/sp_freq.npy')
@@ -1101,4 +1179,8 @@ if __name__ == "__main__":
 
         return fig
 
+
+
+
     app.run_server(debug=True)
+
