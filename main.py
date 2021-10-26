@@ -18,10 +18,10 @@ from dash_table import DataTable
 import audio_process as ap
 import audio_recognize as ar
 import utils
+import pandas as pd
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 from sklearn.manifold import TSNE
-import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -456,16 +456,19 @@ def get_layout():
             style={'display': 'none'}
             ),
 
-            dbc.Row(
-                    [
-                     dbc.Col(dcc.Graph(
-                         id='clusters_temporal_scatter',
-                         hoverData={'points': [{'pointIndex': 0}]}),
-                         width=6,
-                         style={'marginTop': 10})
-                    ]
-            ),
-
+        dbc.Row(
+            [
+                dbc.Col(dcc.Graph(
+                    id='clusters_temporal_scatter',
+                    hoverData={'points': [{'pointIndex': 0}]}),
+                    width=6,
+                    style={'marginTop': 10}),
+                dbc.Col(dcc.Graph(
+                    id='clusters_transition_proba'),
+                    width=6,
+                    style={'marginTop': 10})
+            ]
+        ),
 
         ], style={"height": "100vh"})
     return layout
@@ -550,7 +553,9 @@ if __name__ == "__main__":
     @app.callback(
         [Output('cluster_graph', 'figure'),
          Output('clustering_info', 'data'),
-         Output('clusters_temporal_scatter', 'figure') ],
+         Output('clusters_temporal_scatter', 'figure'),
+         Output('clusters_transition_proba', 'figure'),
+         ],
         [Input('dropdown_cluster', 'value'),
          Input('dropdown_n_clusters', 'value'),
          Input('dropdown_feats_type', 'value'), 
@@ -641,6 +646,24 @@ if __name__ == "__main__":
         df = pd.DataFrame(seg_limits, columns=['T1', 'T2'])
         df['cluster_id'] = y
 
+        transitions = [[0 for i in range(n_clusters)] for i in range(n_clusters)]
+
+        for index, cluster_id in enumerate(df['cluster_id']):
+            if index < len(df) - 1:
+                transitions[cluster_id][df.iloc[index + 1, 2]] += 1
+
+        for index, cluster_list in enumerate(transitions):
+            transitions[index] = [x / sum(cluster_list) for x in cluster_list]
+
+        transition_proba = px.imshow(transitions,
+                                     title='Transition Probability of Clusters',
+                                     labels=dict(x="Syllable (T+1)", y="Syllable (T) ", color="Probability"))
+
+        transition_proba.update_layout(yaxis_nticks=2 * n_clusters, xaxis_nticks=2 * n_clusters)
+
+        transition_proba = transition_proba.to_dict()
+
+
         temporal_fig = go.Figure(
             data=go.Scatter(
                 x=df['T1'],
@@ -668,8 +691,6 @@ if __name__ == "__main__":
         )
         temporal_fig = temporal_fig.to_dict()
 
-
-
         with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
             loaded_data=json.load(infile)
         for annotation in loaded_data['point_annotations']:
@@ -680,7 +701,7 @@ if __name__ == "__main__":
                     fig['data'][0]['marker']['line']['color'][index]='Green'
                 else:
                     fig['data'][0]['marker']['line']['color'][index]='Red'
-        return fig, data, temporal_fig
+        return fig, data, temporal_fig, transition_proba
 
     @app.callback(
         Output('save_clustering', 'children'),
