@@ -1,0 +1,51 @@
+{
+  "input_file": "B148_test_small.wav",
+  "total_cluster_annotations": [
+    {
+      "method": "kmeans",
+      "number_of_clusters": 5,
+      "features_type": "deep",
+      "annotation": 80
+    }
+  ],
+  "cluster_annotations": [
+    {
+      "method": "kmeans",
+      "number_of_clusters": 5,
+      "features_type": "deep",
+      "class": 3,
+      "annotation": 60
+    },
+    {
+      "method": "kmeans",
+      "number_of_clusters": 5,
+      "features_type": "deep",
+      "class": 1,
+      "annotation": 70
+    }
+  ],
+  "point_annotations": [
+    {
+      "index": 131,
+      "class": 3,
+      "start time": 31.886000000000003,
+      "end time": 31.968,
+      "spec_file": "spec_131.png",
+      "annotation": "approve",
+      "method": "kmeans",
+      "number_of_clusters": 5,
+      "features_type": "deep"
+    },
+    {
+      "index": 92,
+      "class": 1,
+      "start time": 26.312,
+      "end time": 26.394,
+      "spec_file": "spec_92.png",
+      "annotation": "reject",
+      "method": "kmeans",
+      "number_of_clusters": 5,
+      "features_type": "deep"
+    }
+  ]
+}
