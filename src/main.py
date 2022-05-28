@@ -113,7 +113,7 @@ def get_layout():
     continue_ = args.continue_
     global voc_name, bn
     bn=0
-    voc_name = 'offline_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
+    voc_name = './app_data/offline_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
     with open(voc_name, 'w') as fp:
             writer=csv.writer(fp)
             writer.writerow(["Start time", "End time"])
@@ -488,7 +488,7 @@ if __name__ == "__main__":
     np.save('./dash/click_index.npy', click_index)
     np.save('./dash/spectrogram.npy', spectrogram)
 
-    with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
+    with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
         x = json.dumps({'input_file': args.input_file.split('/')[-1], 'total_cluster_annotations': [], 'cluster_annotations': [], 'point_annotations': []}, indent=4)
         outfile.write(x)
     # These should change depending on the signal's size
@@ -691,7 +691,7 @@ if __name__ == "__main__":
         )
         temporal_fig = temporal_fig.to_dict()
 
-        with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
+        with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
             loaded_data=json.load(infile)
         for annotation in loaded_data['point_annotations']:
             if annotation['method'] == method and annotation['number_of_clusters'] == n_clusters and annotation['features_type']==feats_type:
@@ -716,7 +716,7 @@ if __name__ == "__main__":
         if n_clicks_f and n_clicks_f!='no' and 'btn_f' in changed_id:
             clf=SVC()
             labels = np.load('./dash/labels.npy')
-            np.save('labels_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0]), labels)
+            np.save('./app_data/labels_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0]), labels)
             syllables = np.load('./dash/syllables.npy', allow_pickle=True)
             with open(voc_name, 'w') as fp:
                 writer=csv.writer(fp)
@@ -735,10 +735,10 @@ if __name__ == "__main__":
                 torch.save(model, "model_{}_{}_{}_{}".format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type))
             # centers = np.load('./dash/centers.npy')
             # np.save('centers_{}_{}_{}_{}.npy'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), centers)
-            pickle.dump(clf, open('clf_{}_{}_{}_{}.sav'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), 'wb'))
-            joblib.dump(joblib.load('./dash/vt_selector.bin'), 'vt_selector_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
-            joblib.dump(joblib.load('./dash/std_scaler.bin'),'std_scaler_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
-            joblib.dump(joblib.load('./dash/pca.bin'),'pca_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
+            pickle.dump(clf, open('./app_data/clf_{}_{}_{}_{}.sav'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type), 'wb'))
+            joblib.dump(joblib.load('./dash/vt_selector.bin'), './app_data/vt_selector_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
+            joblib.dump(joblib.load('./dash/std_scaler.bin'),'./app_data/std_scaler_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
+            joblib.dump(joblib.load('./dash/pca.bin'),'./app_data/pca_{}_{}_{}_{}.bin'.format((args.input_file.split('/')[-1]).split('.')[0], method, n_clusters, feats_type),compress=True)
             print("SAVED")
         return '{}'
 
@@ -1027,7 +1027,7 @@ if __name__ == "__main__":
             else:
                 return table, total
         else:
-            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
+            with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 loaded_data=json.load(infile)
             cnt = [0 for i in range(n_clusters)]
             for annotation in loaded_data['point_annotations']:
@@ -1065,10 +1065,10 @@ if __name__ == "__main__":
                           'annotation': val}
             point_info = {**point_info, **info}
 
-            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
+            with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 data=json.load(infile)
 
-            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
+            with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
                 ready = False
                 for i, point_ann in enumerate(data['point_annotations']):    
                     shared_items = {k: point_info[k] for k in point_info if k in point_ann and point_info[k] == point_ann[k]}
@@ -1095,10 +1095,10 @@ if __name__ == "__main__":
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if click_data and val and val!='no' and 'btn_2' in changed_id:
 
-            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
+            with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 data=json.load(infile)
             
-            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
+            with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
                 ready = False
                 labels = np.load('./dash/labels.npy')
                 info['class'] = int(labels[click_data['points'][0]['pointIndex']])
@@ -1126,10 +1126,10 @@ if __name__ == "__main__":
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if val and val!='no' and 'btn_3' in changed_id:
 
-            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
+            with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 data=json.load(infile)
             
-            with open('annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
+            with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'w') as outfile:
                 ready = False
                 for i, total_cluster_ann in enumerate(data['total_cluster_annotations']):    
                     shared_items = {k: info[k] for k in info if k in total_cluster_ann and info[k] == total_cluster_ann[k]}
