@@ -132,6 +132,5 @@ dmypy.json
 .idea/
 
 # Runtime files
-src/annotations_eval_B148_test_small.json
 src/dash/
-src/offline_B148_test_small.csv
+src/app_data/
