@@ -24,6 +24,7 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import joblib
 import math 
+import os
 
 global fs
 global all_data
@@ -169,19 +170,21 @@ if __name__ == "__main__":
     outstr = datetime.datetime.now().strftime("%Y_%m_%d_%I:%M%p")
     if input_file:
         fs, wav_signal = io.read_audio_file(input_file)
-        voc_file = 'realtime_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
+        voc_file = './app_data/realtime_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
     else:
         input_Fs = input("Input desired recording frequency (in Hz): ")
         fs = int(input_Fs)
-        voc_file = 'realtime_{}.csv'.format(outstr)
+        voc_file = './app_data/realtime_{}.csv'.format(outstr)
     signal.signal(signal.SIGINT, signal_handler)
     if clf:
         loaded_model = pickle.load(open(clf, 'rb'))
+        clf_base = os.path.basename(clf)
+        clf_dir = os.path.dirname(clf)
         model = torch.load(model_name, map_location=torch.device('cpu'))
         # centers = np.load(clf)
-        selector = joblib.load('vt_selector_' + clf[4:-4]+'.bin')
-        scaler = joblib.load('std_scaler_' + clf[4:-4]+'.bin')
-        pca = joblib.load('pca_' + clf[4:-4]+'.bin')
+        selector = joblib.load(clf_dir + '/' + 'vt_selector_' + clf_base[4:-4]+'.bin')
+        scaler = joblib.load(clf_dir + '/' + 'std_scaler_' + clf_base[4:-4]+'.bin')
+        pca = joblib.load(clf_dir + '/' + 'pca_' + clf_base[4:-4]+'.bin')
     all_data = []
     mid_buffer = []
     
