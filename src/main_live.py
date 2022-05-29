@@ -153,12 +153,12 @@ def print_and_write(to_print, start_time, end_time, i_s, len_seg_limits):
     to_print[1] = end_time
     print(to_print)
     if i_s!=len_seg_limits-1:
-        with open(voc_file, "a") as fp:
+        with open(voc_file, "a", newline='') as fp:
             writer=csv.writer(fp)
             writer.writerow(to_print)
 
 def write_last(to_print_last):
-    with open(voc_file, "a") as fp:
+    with open(voc_file, "a", newline='') as fp:
         writer=csv.writer(fp)
         writer.writerow(to_print_last)
 
@@ -208,7 +208,7 @@ if __name__ == "__main__":
     # get spectral sequences:
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
-    with open(voc_file, "w") as fp:
+    with open(voc_file, "w", newline='') as fp:
         writer=csv.writer(fp)
         if clf:
             writer.writerow(["Start time", "End time", "Class"])
