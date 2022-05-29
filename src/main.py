@@ -530,7 +530,7 @@ if __name__ == "__main__":
          ],
         [Input('heatmap1', 'clickData')])
     def display_click_data(click_data):
-        syllables = np.load('./dash/syllables.npy',allow_pickle=True)
+        syllables = np.load('./dash/syllables.npy', allow_pickle=True)
         t1, t2 = 0.0, 0.0
         i_s = -1
         found = False
@@ -564,9 +564,11 @@ if __name__ == "__main__":
         [State('clustering_info', 'data'),
          State('cluster_graph', 'clickData'),
          State('cluster_graph', 'figure'),
+         State('clusters_temporal_scatter', 'figure'),
+         State('clusters_transition_proba', 'figure'),
         ])
     def update_cluster_graph(method, n_clusters, feats_type, n_clicks_3, update,
-                            clust_info, click_data, fig):
+                            clust_info, click_data, fig, fig_temp, fig_proba):
        
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         click_index = np.load('./dash/click_index.npy')
@@ -581,16 +583,16 @@ if __name__ == "__main__":
                     fig['data'][0]['marker']['line']['color'][index]='Red'
                 click_index = -1
                 np.save('./dash/click_index.npy', click_index)
-                return fig, clust_info
+                return fig, clust_info, fig_temp, fig_proba
 
             elif click_data:
                 index=click_data['points'][0]['pointIndex']
                 fig['data'][0]['marker']['size'][index]=10
                 if click_index != -1 and click_index != index:
                     fig['data'][0]['marker']['size'][click_index]=7.5
-                click_index = index 
+                click_index = index
                 np.save('./dash/click_index.npy', click_index)
-                return fig, clust_info
+                return fig, clust_info, fig_temp, fig_proba
         specs= np.load('./dash/specs.npy')
         # pairwise_constraints = np.zeros((len(specs), len(specs)))
         # np.save('./dash/pw.npy', pairwise_constraints)
@@ -614,7 +616,7 @@ if __name__ == "__main__":
             '#e377c2',  # raspberry yogurt pink
             '#7f7f7f',  # middle gray
             '#bcbd22',  # curry yellow-green
-            '#17becf'  # blue-teal
+            '#17becf'   # blue-teal
         ]
 
         fig = go.Figure(data = go.Scatter(x = feats_2d[:, 0],
@@ -1063,7 +1065,7 @@ if __name__ == "__main__":
                           'class': int(labels[click_data['points'][0]['pointIndex']]), 
                           'start time': syllables[click_data['points'][0]['pointIndex']]['st'], 'end time': syllables[click_data['points'][0]['pointIndex']]['et'],
                           'annotation': val}
-            point_info = {**point_info, **info}
+            # point_info = {**point_info, **info}
 
             with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
                 data=json.load(infile)
