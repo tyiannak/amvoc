@@ -1,7 +1,7 @@
 scipy==1.5.4
 matplotlib==3.3.3
 plotly==4.14.1
-numpy==1.19.4
+numpy==1.22.0
 torch==1.7.1
 dash_core_components==1.14.1
 dash==1.18.1
