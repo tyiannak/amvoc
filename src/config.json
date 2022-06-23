@@ -8,7 +8,7 @@
     "F2": 110000,
     "thres":0.5,
     "factor": 3.5,
-    "model": "model_test_new_4",
+    "model": "models/model_test_new_4",
     "gamma_1": 0.5,
     "gamma_2": 0.2,
     "gamma_3": 0.001,

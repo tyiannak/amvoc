@@ -44,7 +44,7 @@ if the user wants to use the GUI and also the spectrogram of the whole signal
 displayed (not recommended for long recordings). 
 This functionality is set by parameter -s, which is optional.
 
-![execution example](screenshot.png "execution example")
+![execution example](misc/screenshot.png "execution example")
 
 ### Clustering evaluation
 For the clustering evaluation, three performance metrics have been employed: 
@@ -62,7 +62,7 @@ After the re-training procedure is finished, the user can inspect the new cluste
 
 The option "Save clustering" gives the opportunity to save the cluster label of each USV, the autoencoder model used as "model_fileName_clusteringMethod_numClusters_featureType" and also train a classifier, saved as "clf_fileName_clusteringMethod_numClusters_featureType", using USV representations and their corresponding labels as ground-truth data. 
 
-![execution example](screenshot3.png "execution example 2")
+![execution example](misc/screenshot3.png "execution example 2")
 
 ## Online functionality
 AMVOC also includes an online functionality, i.e. the chance to detect USVs while recording the mouse vocal activity. This is achieved by running the main_live.py script, which detects USVs in online mode (every 750 ms) and saves their start and end times in a .csv file named "realtime_filename.csv". It just takes the WAV filename of the recording to be processed (or no filename 

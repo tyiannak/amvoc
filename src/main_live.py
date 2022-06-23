@@ -24,6 +24,7 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import joblib
 import math 
+import os
 
 global fs
 global all_data
@@ -152,12 +153,12 @@ def print_and_write(to_print, start_time, end_time, i_s, len_seg_limits):
     to_print[1] = end_time
     print(to_print)
     if i_s!=len_seg_limits-1:
-        with open(voc_file, "a") as fp:
+        with open(voc_file, "a", newline='') as fp:
             writer=csv.writer(fp)
             writer.writerow(to_print)
 
 def write_last(to_print_last):
-    with open(voc_file, "a") as fp:
+    with open(voc_file, "a", newline='') as fp:
         writer=csv.writer(fp)
         writer.writerow(to_print_last)
 
@@ -169,19 +170,21 @@ if __name__ == "__main__":
     outstr = datetime.datetime.now().strftime("%Y_%m_%d_%I:%M%p")
     if input_file:
         fs, wav_signal = io.read_audio_file(input_file)
-        voc_file = 'realtime_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
+        voc_file = './app_data/realtime_{}.csv'.format((args.input_file.split('/')[-1]).split('.')[0])
     else:
         input_Fs = input("Input desired recording frequency (in Hz): ")
         fs = int(input_Fs)
-        voc_file = 'realtime_{}.csv'.format(outstr)
+        voc_file = './app_data/realtime_{}.csv'.format(outstr)
     signal.signal(signal.SIGINT, signal_handler)
     if clf:
         loaded_model = pickle.load(open(clf, 'rb'))
+        clf_base = os.path.basename(clf)
+        clf_dir = os.path.dirname(clf)
         model = torch.load(model_name, map_location=torch.device('cpu'))
         # centers = np.load(clf)
-        selector = joblib.load('vt_selector_' + clf[4:-4]+'.bin')
-        scaler = joblib.load('std_scaler_' + clf[4:-4]+'.bin')
-        pca = joblib.load('pca_' + clf[4:-4]+'.bin')
+        selector = joblib.load(clf_dir + '/' + 'vt_selector_' + clf_base[4:-4]+'.bin')
+        scaler = joblib.load(clf_dir + '/' + 'std_scaler_' + clf_base[4:-4]+'.bin')
+        pca = joblib.load(clf_dir + '/' + 'pca_' + clf_base[4:-4]+'.bin')
     all_data = []
     mid_buffer = []
     
@@ -205,7 +208,7 @@ if __name__ == "__main__":
     # get spectral sequences:
     f_low = F1 if F1 < fs / 2.0 else fs / 2.0
     f_high = F2 if F2 < fs / 2.0 else fs / 2.0
-    with open(voc_file, "w") as fp:
+    with open(voc_file, "w", newline='') as fp:
         writer=csv.writer(fp)
         if clf:
             writer.writerow(["Start time", "End time", "Class"])
