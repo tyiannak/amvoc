@@ -135,3 +135,4 @@ URL = {https://doi.org/10.1080/09524622.2022.2099973}
 
 The respective article is available [here](https://www.tandfonline.com/doi/full/10.1080/09524622.2022.2099973?src=)
 
+Amvoc has been developed by [the Multimedia Analysis Group of the Computational Intelligence Lab (MagCIL)](http://magcil.github.io) of the National Center for Scientific Research "Demokritos" in cooperation with the [Jarvis Neuroscience Lab](https://www.jarvislab.net) of the Rockefeller University. 
