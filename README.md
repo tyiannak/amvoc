@@ -117,3 +117,23 @@ python3 syllables_comp.py -i data/vocalizations_evaluation/1/rec_1.wav -csv1 rea
 
 The evaluation metrics are displayed on terminal. 
 
+
+## About
+To cite the work behind this repository please use the following:
+```
+@article{doi:10.1080/09524622.2022.2099973,
+author = {Vasiliki Stoumpou and César D. M. Vargas and Peter F. Schade and J. Lomax Boyd and Theodoros Giannakopoulos and Erich D. Jarvis},
+title = {Analysis of Mouse Vocal Communication (AMVOC): a deep, unsupervised method for rapid detection, analysis and classification of ultrasonic vocalisations},
+journal = {Bioacoustics},
+pages = {1-31},
+year  = {2022},
+publisher = {Taylor & Francis},
+doi = {10.1080/09524622.2022.2099973},
+URL = { 
+        https://doi.org/10.1080/09524622.2022.2099973
+}
+}
+```
+
+The respective article is available [here](https://www.tandfonline.com/doi/full/10.1080/09524622.2022.2099973?src=)
+
