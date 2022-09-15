@@ -482,6 +482,10 @@ if __name__ == "__main__":
                                                            ST_WIN, ST_STEP)
     if not os.path.exists('dash'):
         os.mkdir('dash')
+
+    if not os.path.exists('app_data'):
+        os.mkdir('app_data')
+
     # save necessary
     np.save('./dash/sp_time.npy', sp_time)
     np.save('./dash/sp_freq.npy', sp_freq)
