@@ -2,7 +2,7 @@
 
 ## Intro
 amvoc is a tool used to analyze mouse vocal communication through analyzing
- audio recordings from mouse communication signals.
+ audio recordings from mouse communication signals. It has been developed by [the Multimedia Analysis Group of the Computational Intelligence Lab (MagCIL)](http://magcil.github.io) of the NCSR "Demokritos" (Greece) in cooperation with the [Jarvis Neuroscience Lab](https://www.jarvislab.net) of the Rockefeller University. 
  
 ## Setup
 ```
