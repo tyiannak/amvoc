@@ -7,14 +7,16 @@ Maintainer: Theodoros Giannakopoulos {tyiannak@gmail.com}
 # -*- coding: utf-8 -*-
 import argparse
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc  
+from dash import html
+from dash import dash_table 
+# from dash_table import DataTable
 import numpy as np
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 from dash.dependencies import Input, Output, State
-from dash_table import DataTable
+
 import audio_process as ap
 import audio_recognize as ar
 import utils
@@ -401,9 +403,9 @@ def get_layout():
         dbc.Row([dbc.Col(
             dcc.Graph(id='cluster_graph'), width = 9, md = 8, style={'marginLeft': 0}),
                 dbc.Col(
-                html.Div(children=[html.Div([ DataTable(id='total_annotation', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},
+                html.Div(children=[html.Div([ dash_table.DataTable(id='total_annotation', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},
                 columns = [{'id': 'Global annotation', 'name': 'Global annotation'} ])],style={'marginBottom':10}),
-                DataTable(id='cluster_table', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},columns = [{'id': column, 'name': column} for column in ['Clusters', 'Cluster annotation', 'Annotated points']])]),
+                dash_table.DataTable(id='cluster_table', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},columns = [{'id': column, 'name': column} for column in ['Clusters', 'Cluster annotation', 'Annotated points']])]),
                 style = {'marginTop':10, 'marginLeft': 5, 'marginRight':0}, width ='25%',
         ),
         ],justify='start'),
