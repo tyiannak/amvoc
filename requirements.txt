@@ -9,7 +9,7 @@ torchvision==0.8.2
 dash_html_components==1.1.1
 torchsummary==1.5.1
 dash_bootstrap_components==0.11.1
-Pillow==8.0.1
+Pillow==10.0.1
 pyaudio==0.2.11
 pyAudioAnalysis==0.3.6
 scikit_learn==0.24.0
