@@ -7,16 +7,14 @@ Maintainer: Theodoros Giannakopoulos {tyiannak@gmail.com}
 # -*- coding: utf-8 -*-
 import argparse
 import dash
-from dash import dcc  
-from dash import html
-from dash import dash_table 
-# from dash_table import DataTable
+import dash_core_components as dcc
+import dash_html_components as html
 import numpy as np
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 from dash.dependencies import Input, Output, State
-
+from dash_table import DataTable
 import audio_process as ap
 import audio_recognize as ar
 import utils
@@ -403,9 +401,9 @@ def get_layout():
         dbc.Row([dbc.Col(
             dcc.Graph(id='cluster_graph'), width = 9, md = 8, style={'marginLeft': 0}),
                 dbc.Col(
-                html.Div(children=[html.Div([ dash_table.DataTable(id='total_annotation', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},
+                html.Div(children=[html.Div([ DataTable(id='total_annotation', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},
                 columns = [{'id': 'Global annotation', 'name': 'Global annotation'} ])],style={'marginBottom':10}),
-                dash_table.DataTable(id='cluster_table', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},columns = [{'id': column, 'name': column} for column in ['Clusters', 'Cluster annotation', 'Annotated points']])]),
+                DataTable(id='cluster_table', style_cell={'whiteSpace': 'normal','height': 'auto','width': 100},columns = [{'id': column, 'name': column} for column in ['Clusters', 'Cluster annotation', 'Annotated points']])]),
                 style = {'marginTop':10, 'marginLeft': 5, 'marginRight':0}, width ='25%',
         ),
         ],justify='start'),
@@ -858,8 +856,9 @@ if __name__ == "__main__":
 
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]  
 
-        if (b_y and 'b_y' in changed_id)  or (b_n and 'b_n' in changed_id) or b_stop or (b_cancel and 'b_cancel' in changed_id):
-            return False, {}
+        if (b_y and 'b_y' in changed_id)or (b_n and 'b_n' in changed_id) or b_stop or (b_cancel and 'b_cancel' in changed_id):
+            if 'retrain_const.children' not in [p['prop_id'] for p in dash.callback_context.triggered]:
+                return False, {}
         if images:
 
             image_1 = np.load('./dash/image_1.npy')
@@ -1057,12 +1056,15 @@ if __name__ == "__main__":
 
     @app.callback(
         Output('intermediate_val_syllables', 'children'),
-        [Input('cluster_graph', 'clickData'),
+        [Input('dropdown_cluster', 'value'),
+         Input('dropdown_n_clusters', 'value'),
+         Input('dropdown_feats_type', 'value'), 
+         Input('cluster_graph', 'clickData'),
          Input('dropdown_point_annotation', 'value'),
          Input('btn_1', 'n_clicks')],
          State('clustering_info', 'data'))
          
-    def point_annotation(click_data, val, info, n_clicks):
+    def point_annotation(method, n_clusters, feats_type,  click_data, val, info, n_clicks):
         changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
         if click_data and (val=='approve' or val=='reject') and 'btn_1' in changed_id:
             labels = np.load('./dash/labels.npy')
@@ -1070,7 +1072,11 @@ if __name__ == "__main__":
             point_info = {'index': click_data['points'][0]['pointIndex'] , 
                           'class': int(labels[click_data['points'][0]['pointIndex']]), 
                           'start time': syllables[click_data['points'][0]['pointIndex']]['st'], 'end time': syllables[click_data['points'][0]['pointIndex']]['et'],
-                          'annotation': val}
+                          'annotation': val,
+                          'method': method,
+                          'number_of_clusters': n_clusters,
+                          'features_type': feats_type
+                          }
             # point_info = {**point_info, **info}
 
             with open('./app_data/annotations_eval_{}.json'.format((args.input_file.split('/')[-1]).split('.')[0]), 'r') as infile:
@@ -1212,4 +1218,3 @@ if __name__ == "__main__":
 
 
     app.run_server(debug=True)
-
