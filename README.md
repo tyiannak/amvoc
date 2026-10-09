@@ -1,8 +1,10 @@
 # amvoc: Python Tool for Analysis of Mouse Vocal Communication
 
+> Developed at [**MagCIL**](https://magcil.github.io), the Multimodal Analysis Group of the Institute of Informatics and Telecommunications, [NCSR "Demokritos"](https://www.demokritos.gr/), Athens, Greece.
+
 ## Intro
 amvoc is a tool used to analyze mouse vocal communication through analyzing
- audio recordings from mouse communication signals. It has been developed by [the Multimedia Analysis Group of the Computational Intelligence Lab (MagCIL)](http://magcil.github.io) of the NCSR "Demokritos" (Greece) in cooperation with the [Jarvis Neuroscience Lab](https://www.jarvislab.net) of the Rockefeller University. 
+ audio recordings from mouse communication signals. It has been developed by [the Multimodal Analysis Group (MagCIL)](https://magcil.github.io) of the NCSR "Demokritos" (Greece) in cooperation with the [Jarvis Neuroscience Lab](https://www.jarvislab.net) of the Rockefeller University. 
  
 ## Setup
 ```
@@ -135,4 +137,26 @@ URL = {https://doi.org/10.1080/09524622.2022.2099973}
 
 The respective article is available [here](https://www.tandfonline.com/doi/full/10.1080/09524622.2022.2099973?src=)
 
-Amvoc has been developed by [the Multimedia Analysis Group of the Computational Intelligence Lab (MagCIL)](http://magcil.github.io) of the National Center for Scientific Research "Demokritos" in cooperation with the [Jarvis Neuroscience Lab](https://www.jarvislab.net) of the Rockefeller University. 
+Amvoc has been developed by [the Multimodal Analysis Group (MagCIL)](https://magcil.github.io) of the National Center for Scientific Research "Demokritos" in cooperation with the [Jarvis Neuroscience Lab](https://www.jarvislab.net) of the Rockefeller University. 
+
+## About MagCIL
+
+This repository comes from [MagCIL](https://magcil.github.io), the Multimodal Analysis Group of the
+Institute of Informatics and Telecommunications at the National Centre for Scientific Research
+"Demokritos" in Athens, Greece. We work on multimodal deep learning for audio, speech, music and
+video, from fundamental research to deployed systems.
+
+- Group website: <https://magcil.github.io>
+- Publications: <https://magcil.github.io/pub.html>
+- All our open-source code and data: <https://magcil.github.io/code.html>
+- Work with us, in industry projects or research consortia: <https://magcil.github.io/collaborate.html>
+
+Other tools from the group:
+
+- [`pyAudioAnalysis`](https://github.com/tyiannak/pyAudioAnalysis) &mdash; audio feature extraction, classification, segmentation and applications
+- [`deep_audio_features`](https://github.com/tyiannak/deep_audio_features) &mdash; training and using CNNs for audio classification (PyTorch)
+- [`deepaudio-x`](https://github.com/magcil/deepaudio-x) &mdash; a PyTorch framework for audio classification
+- [`deepaudio-lab`](https://github.com/magcil/deepaudio-lab) &mdash; a no-code platform for training, evaluating and deploying audio classifiers
+- [`paura`](https://github.com/tyiannak/paura) &mdash; real-time audio recording and analysis
+
+The full list is at <https://github.com/magcil>.
